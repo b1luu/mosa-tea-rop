@@ -19,5 +19,10 @@ cols_to_drop = {
     "Gross Sales"
     "Discounts"
     "Net Sales"
+    "Employee"
+    "Fulfillment Note"
+    "Channel"
+    "Token"
+    "Card Brand"
     
 }
