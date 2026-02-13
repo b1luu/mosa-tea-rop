@@ -15,4 +15,9 @@ cols_to_drop = {
     "Transaction ID"
     "Payment ID"
     "Device Name"
+    "Notes"
+    "Gross Sales"
+    "Discounts"
+    "Net Sales"
+    
 }
