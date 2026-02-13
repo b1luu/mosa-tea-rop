@@ -24,5 +24,9 @@ cols_to_drop = {
     "Channel"
     "Token"
     "Card Brand"
-    
+    "PAN Suffix"
+    "Dining Option"
+    "Location"
+    "Event Type"
+    "GTIN"
 }
