@@ -11,5 +11,7 @@ cols_to_drop = {
     "Time",
     "Time Zone"
     "Price Point Name"
-    
+    "SKU"
+    "Transaction ID"
+    "Payment ID"
 }
