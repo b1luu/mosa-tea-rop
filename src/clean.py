@@ -14,4 +14,5 @@ cols_to_drop = {
     "SKU"
     "Transaction ID"
     "Payment ID"
+    "Device Name"
 }
