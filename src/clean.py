@@ -9,5 +9,5 @@ raw = pd.read_csv("data/raw/raw.csv")
 
 cols_to_drop = {
     "Time",
-    
+    "Time Zone"
 }
