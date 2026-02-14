@@ -55,6 +55,18 @@ for col in ["Category", "Item"]:
           .str.strip()
      )
 
+reward_item = "Free Drink (100☼ Reward)"
+reward_mask = clean["Item"].fillna("").eq(reward_item)
+
+redeemed_rows = int(reward_mask.sum())
+redeemed_qty = float(clean.loc[reward_mask, "Qty"].sum())
+
+print("Free drink redemption rows:", redeemed_rows)
+print("Free drinks redeemed (Qty):", redeemed_qty)
+
+clean = clean.loc[~reward_mask].copy()
+
+
 clean.to_csv("data/trim/clean.csv", index=False)
 
 
