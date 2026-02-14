@@ -3,10 +3,13 @@
 import pandas as pd
 
 #Load raw file
-raw = pd.read_csv("data/raw/raw.csv")
+raw = pd.read_csv(
+    "data/raw/raw.csv",
+    dtype={"Token": "string", "PAN Suffix": "string"},
+    low_memory=False
+)
 
 #Manually drop columns
-
 cols_to_drop = [
     "Time",
     "Time Zone",
@@ -39,12 +42,19 @@ cols_to_drop = [
     "Itemization Type",
     "Commission",
 ]
-
 clean = raw.drop(columns=cols_to_drop, errors="ignore")
 
 #Remove Chinese characters from Category and Item 
+cjk_pattern = r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]"
+for col in ["Category", "Item"]:
+     clean[col] = (
+          clean[col]
+          .fillna("")
+          .str.replace(cjk_pattern, "", regex=True)
+          .str.replace(r"\s+", " ", regex=True)
+          .str.strip()
+     )
 
+clean.to_csv("data/trim/clean.csv", index=False)
 
-
-clean.to_csv("data/trim/clean.csv")
 
