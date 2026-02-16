@@ -63,6 +63,11 @@ def main() -> None:
     clean = clean.loc[is_payment & (clean["Qty"] > 0)].copy()
     clean = clean.drop(columns=["Event Type"])
 
+    non_product_mask = clean["Item"].fillna("").str.fullmatch(
+        r"(?i)tip|custom amount"
+    )
+    
+
     # Remove free-drink rewards.
     reward_mask = clean["Item"].fillna("").eq(FREE_DRINK_ITEM)
     redeemed_rows = int(reward_mask.sum())
