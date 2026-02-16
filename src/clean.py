@@ -9,40 +9,27 @@ raw = pd.read_csv(
     low_memory=False
 )
 
-#Manually drop columns
-cols_to_drop = [
-    "Time",
-    "Time Zone",
-    "Price Point Name",
-    "SKU",
-    "Transaction ID",
-    "Payment ID",
-    "Device Name",
-    "Notes",
-    "Gross Sales",
-    "Discounts",
-    "Net Sales",
-    "Employee",
-    "Fulfillment Note",
-    "Channel",
-    "Token",
-    "Card Brand",
-    "Customer Name",
-    "Customer Reference ID",
-    "Customer ID",
-    "PAN Suffix",
-    "Dining Option",
-    "Location",
-    "Event Type",
-    "GTIN",
-    "Tax",
-    "Details",
-    "Count",
-    "Unit",
-    "Itemization Type",
-    "Commission",
+# Load only columns we actually use
+use_cols = [
+    "Date",
+    "Category",
+    "Item",
+    "Qty",
+    "Modifiers Applied",
+    "Event Type",   # keep for refund handling
 ]
-clean = raw.drop(columns=cols_to_drop, errors="ignore").copy()
+
+clean = pd.read_csv(
+    "data/raw/raw.csv",
+    usecols=use_cols,
+    low_memory=False,
+)
+
+# Normalize key types early
+clean["Date"] = pd.to_datetime(clean["Date"], errors="coerce")
+clean["Qty"] = pd.to_numeric(clean["Qty"], errors="coerce")
+clean = clean.dropna(subset=["Date", "Qty"]).copy()
+
 
 #Remove Chinese characters from Category and Item 
 cjk_pattern = r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]"
@@ -54,6 +41,25 @@ for col in ["Category", "Item"]:
           .str.replace(r"\s+", " ", regex=True)
           .str.strip()
      )
+     
+# Refund handling
+event = clean["Event Type"].fillna("").str.strip().str.lower()
+is_payment = event.eq("payment")
+is_refund = event.eq("refund") | (clean["Qty"] < 0)
+
+print("Payment rows:", int(is_payment.sum()))
+print("Refund rows:", int(is_refund.sum()))
+print("Payment Qty sum:", float(clean.loc[is_payment, "Qty"].sum()))
+print("Refund Qty sum:", float(clean.loc[is_refund, "Qty"].sum()))  # usually negative
+
+# Keep only sell-through demand rows
+clean = clean.loc[is_payment & (clean["Qty"] > 0)].copy()
+
+# No longer needed after filtering
+clean = clean.drop(columns=["Event Type"])
+
+
+
 #Remove free drink reward for less clutter
 reward_item = "Free Drink (100☼ Reward)"
 reward_mask = clean["Item"].fillna("").eq(reward_item)
