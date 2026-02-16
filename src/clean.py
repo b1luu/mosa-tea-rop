@@ -104,6 +104,15 @@ fixed_ice_items = {
 fixed_ice_mask = clean["Item"].isin(fixed_ice_items) & clean["ice_pct"].isna()
 clean.loc[fixed_ice_mask, "ice_pct"] = 100
 
+no_ice_token_mask = ~clean["Modifiers Applied"].fillna("").str.contains(
+    r"(?i)\b(?:no\s*ice|\d{1,3}\s*%\s*ice)\b", regex=True
+)
+mods_fix_mask = fixed_ice_mask & no_ice_token_mask
+clean.loc[mods_fix_mask, "Modifiers Applied"] = clean.loc[mods_fix_mask, "Modifiers Applied"].fillna("").str.strip().apply(
+    lambda x: "100% Ice" if x == "" else f"{x}, 100% Ice"
+)
+
+
 
 clean.to_csv("data/trim/clean.csv", index=False)
 
