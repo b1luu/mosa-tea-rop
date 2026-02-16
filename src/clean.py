@@ -71,15 +71,13 @@ hot_mask = clean["Category"].fillna("").str.contains(r"(?i)\bhot\b", regex=True)
 has_ice_token = mods.str.contains(r"(?i)\b(no\s*ice|\d{1,3}\s*%\s*ice)\b", regex=True)
 
 fix_mask = hot_mask & ~has_ice_token
-clean["ice_pct"] = pd.to_numeric(
-    mods.str.extract(r"(?i)\b(\d{1,3})\s*%\s*ice\b")[0],
-    errors="coerce",
-)
-clean["sugar_pct"] = pd.to_numeric(
-    mods.str.extract(r"(?i)\b(\d{1,3})\s*%\s*sugar\b")[0],
-    errors="coerce",
+# Add "No Ice" text for hot drinks missing any ice setting
+clean.loc[fix_mask, "Modifiers Applied"] = mods[fix_mask].apply(
+    lambda x: "No Ice" if x == "" else f"{x}, No Ice"
 )
 
+# If you already have parsed ice_pct, force those to 0
+clean.loc[fix_mask, "ice_pct"] = 0
 
 
 
