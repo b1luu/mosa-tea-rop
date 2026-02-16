@@ -94,6 +94,15 @@ clean.loc[fix_mask, "ice_pct"] = 0
 clean["ice_pct"] = clean["ice_pct"].astype("Int64")
 clean["sugar_pct"] = clean["sugar_pct"].astype("Int64")
 
+#Fixed-ice drinks: force blank ice_pct to 100
+fixed_ice_items = {
+     "Strawberry Matcha Latte",
+     "Mango Matcha Latte", 
+     "Chestnut Forest",
+}
+
+fixed_ice_mask = clean["Item"].isin(fixed_ice_items) & clean["ice_pct"].isna()
+
 
 
 clean.to_csv("data/trim/clean.csv", index=False)
