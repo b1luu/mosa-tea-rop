@@ -67,6 +67,15 @@ print("Free drinks redeemed (Qty):", redeemed_qty)
 clean = clean.loc[~reward_mask].copy()
 
 mods = clean["Modifiers Applied"].fillna("").astype(str)
+clean["ice_pct"] = pd.to_numeric(
+    mods.str.extract(r"(?i)\b(\d{1,3})\s*%\s*ice\b")[0],
+    errors="coerce",
+)
+clean["sugar_pct"] = pd.to_numeric(
+    mods.str.extract(r"(?i)\b(\d{1,3})\s*%\s*sugar\b")[0],
+    errors="coerce",
+)
+
 
 
 clean.to_csv("data/trim/clean.csv", index=False)
