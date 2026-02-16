@@ -2,13 +2,6 @@
 
 import pandas as pd
 
-#Load raw file
-raw = pd.read_csv(
-    "data/raw/raw.csv",
-    dtype={"Token": "string", "PAN Suffix": "string"},
-    low_memory=False
-)
-
 # Load only columns we actually use
 use_cols = [
     "Date",
@@ -41,7 +34,7 @@ for col in ["Category", "Item"]:
           .str.replace(r"\s+", " ", regex=True)
           .str.strip()
      )
-     
+
 # Refund handling
 event = clean["Event Type"].fillna("").str.strip().str.lower()
 is_payment = event.eq("payment")
