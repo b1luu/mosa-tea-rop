@@ -102,7 +102,7 @@ fixed_ice_items = {
 }
 
 fixed_ice_mask = clean["Item"].isin(fixed_ice_items) & clean["ice_pct"].isna()
-
+clean.loc[fixed_ice_mask, "ice_pct"] = 100
 
 
 clean.to_csv("data/trim/clean.csv", index=False)
