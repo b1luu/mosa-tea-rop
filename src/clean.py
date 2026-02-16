@@ -112,6 +112,7 @@ clean.loc[mods_fix_mask, "Modifiers Applied"] = clean.loc[mods_fix_mask, "Modifi
     lambda x: "100% Ice" if x == "" else f"{x}, 100% Ice"
 )
 
+print("Fixed 100% ice rows:", int(fixed_ice_mask.sum()))
 
 
 clean.to_csv("data/trim/clean.csv", index=False)
