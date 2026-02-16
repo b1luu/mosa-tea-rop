@@ -66,6 +66,8 @@ print("Free drinks redeemed (Qty):", redeemed_qty)
 
 clean = clean.loc[~reward_mask].copy()
 
+mods = clean["Modifiers Applied"].fillna("").astype(str)
+
 
 clean.to_csv("data/trim/clean.csv", index=False)
 
