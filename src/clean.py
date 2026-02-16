@@ -66,7 +66,7 @@ def main() -> None:
     non_product_mask = clean["Item"].fillna("").str.fullmatch(
         r"(?i)tip|custom amount"
     )
-    
+    print("Removing tip/custom rows:", int(non_product_mask.sum()))
 
     # Remove free-drink rewards.
     reward_mask = clean["Item"].fillna("").eq(FREE_DRINK_ITEM)
