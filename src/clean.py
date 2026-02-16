@@ -68,6 +68,7 @@ def main() -> None:
     )
     print("Removing tip/custom rows:", int(non_product_mask.sum()))
     clean = clean.loc[~non_product_mask].copy()
+    clean = clean[clean["Category"].fillna("").str.strip().ne("")].copy()
 
     # Remove free-drink rewards.
     reward_mask = clean["Item"].fillna("").eq(FREE_DRINK_ITEM)
@@ -129,6 +130,7 @@ def main() -> None:
     clean["sugar_pct"] = clean["sugar_pct"].astype("Int64")
 
     print("Fixed 100% ice rows:", int(fixed_ice_mask.sum()))
+    
     clean.to_csv(OUTPUT_PATH, index=False)
 
 
