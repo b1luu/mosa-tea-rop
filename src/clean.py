@@ -79,7 +79,11 @@ clean.loc[mods.str.contains(r"(?i)\bno\s*ice\b", regex=True), "ice_pct"] = 0
 clean.loc[mods.str.contains(r"(?i)\bno\s*sugar\b", regex=True), "sugar_pct"] = 0
 
 #Hot drinks missing any ice token should default to No Ice
-hot_mask = clean["Category"].fillna("").str.contains(r"(?i)\bhot\b", regex=True)
+hot_mask = (
+    clean["Category"].fillna("").str.contains(r"(?i)\bhot\b", regex=True)
+    | clean["Item"].fillna("").str.contains(r"(?i)^hot\b", regex=True)
+)
+
 has_ice_token = mods.str.contains(r"(?i)\b(?:no\s*ice|\d{1,3}\s*%\s*ice)\b", regex=True)
 
 fix_mask = hot_mask & ~has_ice_token
