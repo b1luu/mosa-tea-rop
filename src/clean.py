@@ -69,6 +69,7 @@ def main() -> None:
     print("Removing tip/custom rows:", int(non_product_mask.sum()))
     clean = clean.loc[~non_product_mask].copy()
 
+    
 
     # Remove free-drink rewards.
     reward_mask = clean["Item"].fillna("").eq(FREE_DRINK_ITEM)
