@@ -54,7 +54,7 @@ for col in ["Category", "Item"]:
           .str.replace(r"\s+", " ", regex=True)
           .str.strip()
      )
-
+#Remove free drink reward for less clutter
 reward_item = "Free Drink (100☼ Reward)"
 reward_mask = clean["Item"].fillna("").eq(reward_item)
 
