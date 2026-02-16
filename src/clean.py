@@ -67,6 +67,7 @@ print("Free drinks redeemed (Qty):", redeemed_qty)
 clean = clean.loc[~reward_mask].copy()
 
 mods = clean["Modifiers Applied"].fillna("").astype(str)
+hot_mask = clean["Category"].fillna("").str.contains(r"(?i)\bhot\b", regex=True)
 clean["ice_pct"] = pd.to_numeric(
     mods.str.extract(r"(?i)\b(\d{1,3})\s*%\s*ice\b")[0],
     errors="coerce",
