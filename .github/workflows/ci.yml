@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  clean-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Verify raw input exists
+        run: test -f data/raw/raw.csv
+
+      - name: Run cleaning pipeline
+        run: python src/clean.py
+
+      - name: Validate cleaned dataset
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          output_path = Path("data/trim/clean.csv")
+          if not output_path.exists():
+              raise SystemExit("clean.csv was not created.")
+
+          df = pd.read_csv(output_path, low_memory=False)
+
+          required_cols = {
+              "Date",
+              "Category",
+              "Item",
+              "Qty",
+              "Modifiers Applied",
+              "ice_pct",
+              "sugar_pct",
+          }
+          missing = required_cols - set(df.columns)
+          if missing:
+              raise SystemExit(f"Missing required columns: {sorted(missing)}")
+
+          qty = pd.to_numeric(df["Qty"], errors="coerce")
+          if qty.isna().any():
+              raise SystemExit("Qty has non-numeric values.")
+          if (qty <= 0).any():
+              raise SystemExit("Qty contains zero or negative values after cleaning.")
+
+          category_blank = df["Category"].isna() | df["Category"].astype(str).str.strip().eq("")
+          if category_blank.any():
+              raise SystemExit("Category has blank or null values.")
+
+          if df["Category"].fillna("").eq("Merchandise").any():
+              raise SystemExit("Merchandise rows were not removed.")
+
+          if df["Item"].fillna("").eq("Free Drink (100☼ Reward)").any():
+              raise SystemExit("Free reward rows were not removed.")
+
+          fixed_ice_items = {"Strawberry Matcha Latte", "Mango Matcha Latte", "Chestnut Forest"}
+          fixed = df["Item"].isin(fixed_ice_items)
+          if fixed.any():
+              fixed_ice = pd.to_numeric(df.loc[fixed, "ice_pct"], errors="coerce")
+              if fixed_ice.isna().any():
+                  raise SystemExit("Fixed-ice items still have blank ice_pct.")
+              if (fixed_ice != 100).any():
+                  raise SystemExit("Fixed-ice items have non-100 ice_pct.")
+
+          print("Validation passed.")
+          print(f"Rows: {len(df)}")
+          print(f"Qty sum: {qty.sum()}")
+          PY

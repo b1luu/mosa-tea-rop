@@ -1,0 +1,38 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish-clean-csv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Verify raw input exists
+        run: test -f data/raw/raw.csv
+
+      - name: Build clean dataset
+        run: python src/clean.py
+
+      - name: Upload clean.csv artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-csv-${{ github.sha }}
+          path: data/trim/clean.csv
+          if-no-files-found: error
+          retention-days: 30
