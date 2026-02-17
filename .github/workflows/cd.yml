@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-clean-csv:
+  publish-sample-clean-csv:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,16 +23,58 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas
 
-      - name: Verify raw input exists
-        run: test -f data/raw/raw.csv
+      - name: Build synthetic fixture (privacy-safe)
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
 
-      - name: Build clean dataset
-        run: python src/clean.py
+          fixture_path = Path("tmp/cd_raw_fixture.csv")
+          fixture_path.parent.mkdir(parents=True, exist_ok=True)
 
-      - name: Upload clean.csv artifact
+          rows = [
+              {
+                  "Date": "2026-01-01",
+                  "Category": "Mosa Signature",
+                  "Item": "TGY Special",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Ice, 75% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-02",
+                  "Category": "Seasonal Special",
+                  "Item": "Hot Spice Apple Tea Cider",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-03",
+                  "Category": "Matcha Series",
+                  "Item": "Strawberry Matcha Latte",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+          ]
+
+          fieldnames = ["Date", "Category", "Item", "Qty", "Modifiers Applied", "Event Type"]
+          with fixture_path.open("w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Wrote fixture: {fixture_path}")
+          PY
+
+      - name: Build sample clean dataset
+        run: python src/clean.py --input tmp/cd_raw_fixture.csv --output tmp/cd_clean.csv
+
+      - name: Upload sample clean.csv artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clean-csv-${{ github.sha }}
-          path: data/trim/clean.csv
+          name: clean-sample-csv-${{ github.sha }}
+          path: tmp/cd_clean.csv
           if-no-files-found: error
           retention-days: 30

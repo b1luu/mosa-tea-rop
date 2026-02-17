@@ -1,5 +1,8 @@
 """Clean raw Square export data for demand analysis."""
 
+import argparse
+from pathlib import Path
+
 import pandas as pd
 
 INPUT_PATH = "data/raw/raw.csv"
@@ -35,9 +38,25 @@ def clean_text_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Clean Square export CSV data.")
+    parser.add_argument(
+        "--input",
+        default=INPUT_PATH,
+        help=f"Input raw CSV path (default: {INPUT_PATH})",
+    )
+    parser.add_argument(
+        "--output",
+        default=OUTPUT_PATH,
+        help=f"Output cleaned CSV path (default: {OUTPUT_PATH})",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     clean = pd.read_csv(
-        INPUT_PATH,
+        args.input,
         usecols=USE_COLS,
         low_memory=False,
     )
@@ -131,10 +150,12 @@ def main() -> None:
 
     print("Fixed 100% ice rows:", int(fixed_ice_mask.sum()))
     
-    clean.to_csv(OUTPUT_PATH, index=False)
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    clean.to_csv(output_path, index=False)
+    print(f"Wrote cleaned file: {output_path}")
 
 
 
 if __name__ == "__main__":
     main()
-

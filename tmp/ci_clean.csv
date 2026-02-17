@@ -1,0 +1,7 @@
+Date,Category,Item,Qty,Modifiers Applied,ice_pct,sugar_pct
+2026-01-01,Mosa Signature,TGY Special,1,"50% Ice, 75% Sugar",50,75
+2026-01-04,Seasonal Special,Hot Spice Apple Tea Cider,1,"50% Sugar, No Ice",0,50
+2026-01-05,Matcha Series,Strawberry Matcha Latte,1,"50% Sugar, 100% Ice",100,50
+2026-01-05,Matcha Series,Mango Matcha Latte,1,"No Sugar, 100% Ice",100,0
+2026-01-05,Seasonal Special,Chestnut Forest,1,"25% Sugar, 100% Ice",100,25
+2026-01-06,Mosa Signature,Tie Guan Yin Milk Tea,1,"100% Ice, 100% Sugar",100,100

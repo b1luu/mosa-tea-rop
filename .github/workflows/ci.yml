@@ -23,11 +23,117 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas
 
-      - name: Verify raw input exists
-        run: test -f data/raw/raw.csv
+      - name: Build synthetic fixture (privacy-safe)
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          fixture_path = Path("tmp/ci_raw_fixture.csv")
+          fixture_path.parent.mkdir(parents=True, exist_ok=True)
+
+          rows = [
+              {
+                  "Date": "2026-01-01",
+                  "Category": "Mosa Signature",
+                  "Item": "TGY Special",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Ice, 75% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-01",
+                  "Category": "Mosa Signature",
+                  "Item": "TGY Special",
+                  "Qty": "-1",
+                  "Modifiers Applied": "50% Ice, 75% Sugar",
+                  "Event Type": "Refund",
+              },
+              {
+                  "Date": "2026-01-02",
+                  "Category": "",
+                  "Item": "Tip",
+                  "Qty": "1",
+                  "Modifiers Applied": "",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-02",
+                  "Category": "",
+                  "Item": "Custom Amount",
+                  "Qty": "1",
+                  "Modifiers Applied": "",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-02",
+                  "Category": "Rewards",
+                  "Item": "Free Drink (100\u263c Reward)",
+                  "Qty": "1",
+                  "Modifiers Applied": "",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-03",
+                  "Category": "Merchandise",
+                  "Item": "Boba Tea Tote Bag",
+                  "Qty": "1",
+                  "Modifiers Applied": "",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-04",
+                  "Category": "Seasonal Special",
+                  "Item": "Hot Spice Apple Tea Cider",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-05",
+                  "Category": "Matcha Series",
+                  "Item": "Strawberry Matcha Latte",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-05",
+                  "Category": "Matcha Series",
+                  "Item": "Mango Matcha Latte",
+                  "Qty": "1",
+                  "Modifiers Applied": "No Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-05",
+                  "Category": "Seasonal Special",
+                  "Item": "Chestnut Forest",
+                  "Qty": "1",
+                  "Modifiers Applied": "25% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-06",
+                  "Category": "Mosa Signature 精選特調",
+                  "Item": "Tie Guan Yin Milk Tea 鐵觀音奶茶",
+                  "Qty": "1",
+                  "Modifiers Applied": "100% Ice, 100% Sugar",
+                  "Event Type": "Payment",
+              },
+          ]
+
+          fieldnames = ["Date", "Category", "Item", "Qty", "Modifiers Applied", "Event Type"]
+          with fixture_path.open("w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Wrote fixture: {fixture_path}")
+          PY
 
       - name: Run cleaning pipeline
-        run: python src/clean.py
+        run: python src/clean.py --input tmp/ci_raw_fixture.csv --output tmp/ci_clean.csv
 
       - name: Validate cleaned dataset
         run: |
@@ -35,7 +141,7 @@ jobs:
           from pathlib import Path
           import pandas as pd
 
-          output_path = Path("data/trim/clean.csv")
+          output_path = Path("tmp/ci_clean.csv")
           if not output_path.exists():
               raise SystemExit("clean.csv was not created.")
 
@@ -78,6 +184,17 @@ jobs:
                   raise SystemExit("Fixed-ice items still have blank ice_pct.")
               if (fixed_ice != 100).any():
                   raise SystemExit("Fixed-ice items have non-100 ice_pct.")
+
+          # Fixture-specific assertions.
+          if len(df) != 6:
+              raise SystemExit(f"Unexpected cleaned row count for fixture: {len(df)} (expected 6).")
+
+          hot_row = df.loc[df["Item"].eq("Hot Spice Apple Tea Cider")]
+          if hot_row.empty:
+              raise SystemExit("Hot Spice Apple Tea Cider row missing after cleaning.")
+          hot_ice = pd.to_numeric(hot_row["ice_pct"], errors="coerce")
+          if hot_ice.isna().any() or (hot_ice != 0).any():
+              raise SystemExit("Hot Spice Apple Tea Cider should have ice_pct=0.")
 
           print("Validation passed.")
           print(f"Rows: {len(df)}")
