@@ -1,0 +1,80 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish-sample-clean-csv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Build synthetic fixture (privacy-safe)
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          fixture_path = Path("tmp/cd_raw_fixture.csv")
+          fixture_path.parent.mkdir(parents=True, exist_ok=True)
+
+          rows = [
+              {
+                  "Date": "2026-01-01",
+                  "Category": "Mosa Signature",
+                  "Item": "TGY Special",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Ice, 75% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-02",
+                  "Category": "Seasonal Special",
+                  "Item": "Hot Spice Apple Tea Cider",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+              {
+                  "Date": "2026-01-03",
+                  "Category": "Matcha Series",
+                  "Item": "Strawberry Matcha Latte",
+                  "Qty": "1",
+                  "Modifiers Applied": "50% Sugar",
+                  "Event Type": "Payment",
+              },
+          ]
+
+          fieldnames = ["Date", "Category", "Item", "Qty", "Modifiers Applied", "Event Type"]
+          with fixture_path.open("w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Wrote fixture: {fixture_path}")
+          PY
+
+      - name: Build sample clean dataset
+        run: python src/clean.py --input tmp/cd_raw_fixture.csv --output tmp/cd_clean.csv
+
+      - name: Upload sample clean.csv artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-sample-csv-${{ github.sha }}
+          path: tmp/cd_clean.csv
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,12 @@
+Date,Category,Item,Qty,Modifiers Applied,Event Type
+2026-01-01,Mosa Signature,TGY Special,1,"50% Ice, 75% Sugar",Payment
+2026-01-01,Mosa Signature,TGY Special,-1,"50% Ice, 75% Sugar",Refund
+2026-01-02,,Tip,1,,Payment
+2026-01-02,,Custom Amount,1,,Payment
+2026-01-02,Rewards,Free Drink (100☼ Reward),1,,Payment
+2026-01-03,Merchandise,Boba Tea Tote Bag,1,,Payment
+2026-01-04,Seasonal Special,Hot Spice Apple Tea Cider,1,50% Sugar,Payment
+2026-01-05,Matcha Series,Strawberry Matcha Latte,1,50% Sugar,Payment
+2026-01-05,Matcha Series,Mango Matcha Latte,1,No Sugar,Payment
+2026-01-05,Seasonal Special,Chestnut Forest,1,25% Sugar,Payment
+2026-01-06,Mosa Signature 精選特調,Tie Guan Yin Milk Tea 鐵觀音奶茶,1,"100% Ice, 100% Sugar",Payment
