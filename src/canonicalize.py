@@ -38,3 +38,4 @@ df.loc[df["tea_base_final"].isna() | df["tea_base_final"].eq(""), "tea_resolutio
 
 df.to_csv("data/trim/canonicalized.csv", index=False)
 print("wrote data/trim/canonicalized.csv")
+
