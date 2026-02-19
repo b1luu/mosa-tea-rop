@@ -110,6 +110,14 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 "Modifiers Applied",
                 "ice_pct",
                 "sugar_pct",
+                "has_topping",
+                "has_multiple_toppings",
+                "toppings_list",
+                "toppings_qty",
+                "topping_types_count",
+                "topping_units_total",
+                "max_single_topping_qty",
+                "topping_multiplier_class",
                 "category_key",
                 "item_key",
                 "tea_base_final",
@@ -219,6 +227,38 @@ class CanonicalizePipelineTests(unittest.TestCase):
         self.assertEqual(slim.loc[0, "tea_resolution"], "conflict")
         self.assertTrue(pd.isna(slim.loc[0, "tea_base_final"]))
         self.assertEqual(debug.loc[0, "tea_override_conflict"], "four_seasons|green")
+
+    def test_toppings_are_aggregated_with_multiplier(self):
+        clean_rows = [
+            [
+                "2026-01-01",
+                "Mosa Signature",
+                "TGY Special",
+                1,
+                "Boba x2, Lychee Jelly, 50% Ice, 50% Sugar",
+                50,
+                50,
+            ],
+        ]
+        token_rows = [
+            ["Boba", "topping", "boba"],
+            ["Lychee Jelly", "topping", "lychee_jelly"],
+        ]
+        item_rule_rows = [
+            ["mosa_signature", "tgy_special", "tie_guan_yin", 0],
+        ]
+        blend_rows = []
+
+        slim, _ = self.run_pipeline(clean_rows, token_rows, item_rule_rows, blend_rows)
+
+        self.assertTrue(bool(slim.loc[0, "has_topping"]))
+        self.assertTrue(bool(slim.loc[0, "has_multiple_toppings"]))
+        self.assertEqual(slim.loc[0, "toppings_list"], "boba|lychee_jelly")
+        self.assertEqual(slim.loc[0, "toppings_qty"], "boba:2|lychee_jelly:1")
+        self.assertEqual(int(slim.loc[0, "topping_types_count"]), 2)
+        self.assertAlmostEqual(float(slim.loc[0, "topping_units_total"]), 3.0)
+        self.assertAlmostEqual(float(slim.loc[0, "max_single_topping_qty"]), 2.0)
+        self.assertEqual(slim.loc[0, "topping_multiplier_class"], "double")
 
 
 if __name__ == "__main__":
