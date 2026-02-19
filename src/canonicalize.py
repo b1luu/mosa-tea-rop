@@ -94,7 +94,9 @@ def run_canonicalization(
         "four_seasons_tea": "four_seasons",
         "green_tea_genmai": "genmai:0.5|green:0.5",
     }
-    mapped["tea_value_norm"] = mapped["canonical_value"].replace(tea_value_map)
+    mapped["tea_value_norm"] = mapped["canonical_value"].apply(
+        lambda v: tea_value_map.get(v, v)
+    )
 
     tea_choices = (
         mapped[mapped["token_type"].eq("tea_base") & mapped["tea_value_norm"].notna()]
@@ -127,12 +129,13 @@ def run_canonicalization(
         + ":"
         + blend_rules["share"].map(lambda v: f"{v:g}" if pd.notna(v) else "")
     )
+    blend_rows = blend_rules[blend_rules["pair"].ne(":")].sort_values(
+        ["category_key", "item_key", "component_tea"]
+    )
     blend_agg = (
-        blend_rules[blend_rules["pair"].ne(":")]
-        .sort_values(["category_key", "item_key", "component_tea"])
-        .groupby(["category_key", "item_key"], as_index=False)["pair"]
+        blend_rows.groupby(["category_key", "item_key"])["pair"]
         .agg("|".join)
-        .rename(columns={"pair": "tea_blend"})
+        .reset_index(name="tea_blend")
     )
 
     # QA: warn if any blend shares do not sum to 1.
