@@ -57,7 +57,14 @@ tea_choices = (
     .rename("tea_override_choices")
     .reset_index()
 )
-tea_choices["tea_choice_count"] = tea_choices["tea_override_choices"].str.split("|").str.len()
+tea_choice_count = (
+    mapped[mapped["token_type"].eq("tea_base") & mapped["tea_value_norm"].notna()]
+    .groupby("row_id")["tea_value_norm"]
+    .nunique()
+    .rename("tea_choice_count")
+    .reset_index()
+)
+tea_choices = tea_choices.merge(tea_choice_count, on="row_id", how="left")
 tea_choices["tea_base_override"] = tea_choices["tea_override_choices"].where(
     tea_choices["tea_choice_count"].eq(1), pd.NA
 )
