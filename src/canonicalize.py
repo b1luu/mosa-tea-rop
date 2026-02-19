@@ -7,6 +7,7 @@ item_rules = pd.read_csv("data/reference/item_rules.csv")
 blend_rules = pd.read_csv("data/reference/item_blend_rules.csv")
 default_comp = pd.read_csv("data/reference/item_default_component.csv")
 
+
 def norm_key(v):
     s = "" if pd.isna(v) else str(v).lower().strip()
     s = re.sub(r"[^a-z0-9]+", "_", s)
