@@ -66,12 +66,23 @@ def run_canonicalization(
     token_map = pd.read_csv(token_map_path)
     item_rules = pd.read_csv(item_rules_path)
     blend_rules = pd.read_csv(blend_rules_path)
-    # Reserved for future component-expansion stage; loaded for schema checks and parity.
-    _default_comp = pd.read_csv(default_components_path)
+    default_comp = pd.read_csv(default_components_path)
 
     clean["row_id"] = range(len(clean))
     clean["category_key"] = clean["Category"].map(norm_key)
     clean["item_key"] = clean["Item"].map(norm_key)
+    default_comp["category_key"] = default_comp["category_key"].map(norm_key)
+    default_comp["item_key"] = default_comp["item_key"].map(norm_key)
+    default_comp["component_key"] = default_comp["component_key"].map(norm_key)
+    default_comp["qty"] = pd.to_numeric(default_comp["qty"], errors="coerce").fillna(1.0)
+    default_comp = default_comp[default_comp["component_key"].astype(str).str.strip().ne("")].copy()
+    topping_component_mask = default_comp["component_key"].str.contains(
+        r"(?i)boba|jelly|foam|pudding|hun_kue|kue",
+        regex=True,
+    )
+    default_toppings = default_comp[
+        topping_component_mask & default_comp["component_key"].ne("osmanthus_syrup_shot")
+    ].copy()
 
     tokens = (
         clean[["row_id", "Modifiers Applied"]]
@@ -133,16 +144,41 @@ def run_canonicalization(
     topping_rows = mapped[
         mapped["token_type"].eq("topping") & mapped["canonical_value"].notna()
     ].copy()
+    modifier_topping_qty_long = (
+        topping_rows.groupby(["row_id", "canonical_value"], as_index=False)["token_qty"]
+        .sum()
+    )
+
+    default_topping_qty_long = (
+        clean[["row_id", "category_key", "item_key"]]
+        .merge(
+            default_toppings[["category_key", "item_key", "component_key", "qty"]],
+            on=["category_key", "item_key"],
+            how="left",
+        )
+        .dropna(subset=["component_key"])
+        .rename(columns={"component_key": "canonical_value", "qty": "token_qty"})
+    )
+
+    topping_qty_long = pd.concat(
+        [
+            modifier_topping_qty_long[["row_id", "canonical_value", "token_qty"]],
+            default_topping_qty_long[["row_id", "canonical_value", "token_qty"]],
+        ],
+        ignore_index=True,
+    )
+    topping_qty_long = (
+        topping_qty_long.groupby(["row_id", "canonical_value"], as_index=False)["token_qty"]
+        .sum()
+    )
+
     toppings_list = (
-        topping_rows.groupby("row_id")["canonical_value"]
+        topping_qty_long.groupby("row_id")["canonical_value"]
         .agg(join_unique)
         .rename("toppings_list")
         .reset_index()
     )
-    topping_qty_long = (
-        topping_rows.groupby(["row_id", "canonical_value"], as_index=False)["token_qty"]
-        .sum()
-    )
+
     topping_qty_long["topping_pair"] = (
         topping_qty_long["canonical_value"].astype(str).str.strip()
         + ":"
@@ -156,7 +192,7 @@ def run_canonicalization(
         .reset_index()
     )
     topping_stats = (
-        topping_rows.groupby("row_id")
+        topping_qty_long.groupby("row_id")
         .agg(
             topping_types_count=("canonical_value", "nunique"),
             topping_units_total=("token_qty", "sum"),
