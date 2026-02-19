@@ -16,3 +16,12 @@ clean["row_id"] = range(len(clean))
 clean["category_key"] = clean["Category"].map(norm_key)
 clean["item_key"] = clean["Item"].map(norm_key)
 
+tokens = (
+    clean[["row_id", "Modifiers Applied"]]
+    .assign(token=lambda d: d["Modifiers Applied"].fillna("").astype(str).str.split(","))
+    .explode("token")
+)
+tokens["token"] = tokens["token"].fillna("").str.strip()
+tokens = tokens[tokens["token"] != ""].copy()
+tokens["token_norm"] = tokens["token"].str.lower()
+
