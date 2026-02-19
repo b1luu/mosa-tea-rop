@@ -25,3 +25,16 @@ tokens["token"] = tokens["token"].fillna("").str.strip()
 tokens = tokens[tokens["token"] != ""].copy()
 tokens["token_norm"] = tokens["token"].str.lower()
 
+df = clean.merge(
+    item_rules[["category_key", "item_key", "default_tea_base", "requires_tea_choice"]],
+    on=["category_key", "item_key"],
+    how="left"
+)
+
+# first pass only: tea_base_final = default
+df["tea_base_final"] = df["default_tea_base"]
+df["tea_resolution"] = "default"
+df.loc[df["tea_base_final"].isna() | df["tea_base_final"].eq(""), "tea_resolution"] = "unknown"
+
+df.to_csv("data/trim/canonicalized.csv", index=False)
+print("wrote data/trim/canonicalized.csv")
