@@ -158,5 +158,24 @@ df.loc[missing_choice_mask, "tea_resolution"] = "missing_choice"
 print("tea_resolution counts:")
 print(df["tea_resolution"].value_counts(dropna=False).to_string())
 
-df.to_csv("data/trim/canonicalized.csv", index=False)
+# Write full debug output (all intermediate columns).
+df.to_csv("data/trim/canonicalized_debug.csv", index=False)
+print("wrote data/trim/canonicalized_debug.csv")
+
+# Write slim analysis output (reduced clutter).
+final_cols = [
+    "Date",
+    "Category",
+    "Item",
+    "Qty",
+    "Modifiers Applied",
+    "ice_pct",
+    "sugar_pct",
+    "category_key",
+    "item_key",
+    "tea_base_final",
+    "tea_resolution",
+]
+df_final = df[final_cols].copy()
+df_final.to_csv("data/trim/canonicalized.csv", index=False)
 print("wrote data/trim/canonicalized.csv")
