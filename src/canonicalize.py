@@ -6,14 +6,22 @@ import pandas as pd
 
 
 def norm_key(v):
+    """Normalize free text into a stable snake_case join key."""
     s = "" if pd.isna(v) else str(v).lower().strip()
     s = re.sub(r"[^a-z0-9]+", "_", s)
     return s.strip("_")
 
 
 def join_unique(values):
+    """Return sorted unique non-empty values joined by | for deterministic outputs."""
     vals = sorted({str(v).strip() for v in values if pd.notna(v) and str(v).strip() != ""})
     return "|".join(vals)
+
+
+def format_qty(v):
+    """Format numeric qty without trailing .0 when value is whole."""
+    return f"{v:g}" if pd.notna(v) else ""
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Canonicalize cleaned sales data.")
@@ -57,16 +65,40 @@ def run_canonicalization(
     blend_rules_path,
     default_components_path,
 ):
+    """Canonicalize clean sales rows into analysis-ready fields.
+
+    Pipeline:
+    1) Build stable row/category/item keys.
+    2) Explode modifiers and map tokens.
+    3) Resolve tea base with precedence.
+    4) Build topping features from both modifiers and default item components.
+    """
     clean = pd.read_csv(clean_path, low_memory=False)
     token_map = pd.read_csv(token_map_path)
     item_rules = pd.read_csv(item_rules_path)
     blend_rules = pd.read_csv(blend_rules_path)
-    # Reserved for future component-expansion stage; loaded for schema checks and parity.
-    _default_comp = pd.read_csv(default_components_path)
+    default_comp = pd.read_csv(default_components_path)
 
+    # Stable row key lets us explode/aggregate and merge back without ambiguity.
     clean["row_id"] = range(len(clean))
     clean["category_key"] = clean["Category"].map(norm_key)
     clean["item_key"] = clean["Item"].map(norm_key)
+
+    # Normalize default component keys so they can join cleanly with item keys.
+    default_comp["category_key"] = default_comp["category_key"].map(norm_key)
+    default_comp["item_key"] = default_comp["item_key"].map(norm_key)
+    default_comp["component_key"] = default_comp["component_key"].map(norm_key)
+    default_comp["qty"] = pd.to_numeric(default_comp["qty"], errors="coerce").fillna(1.0)
+    default_comp = default_comp[default_comp["component_key"].astype(str).str.strip().ne("")].copy()
+
+    # Treat only topping-like defaults as toppings; osmanthus syrup is flavoring, not topping.
+    topping_component_mask = default_comp["component_key"].str.contains(
+        r"(?i)boba|jelly|foam|pudding|hun_kue|kue",
+        regex=True,
+    )
+    default_toppings = default_comp[
+        topping_component_mask & default_comp["component_key"].ne("osmanthus_syrup_shot")
+    ].copy()
 
     tokens = (
         clean[["row_id", "Modifiers Applied"]]
@@ -75,7 +107,13 @@ def run_canonicalization(
     )
     tokens["token"] = tokens["token"].fillna("").str.strip()
     tokens = tokens[tokens["token"] != ""].copy()
-    tokens["token_norm"] = tokens["token"].str.lower()
+
+    # Parse quantity suffixes like "Boba x2", "Boba x 2", "Boba × 2.0".
+    mult_re = r"^(?P<name>.+?)\s*[×x]\s*(?P<qty>\d+(?:\.\d+)?)\s*$"
+    mult = tokens["token"].str.extract(mult_re, flags=re.IGNORECASE)
+    tokens["token_name"] = mult["name"].fillna(tokens["token"]).str.strip()
+    tokens["token_qty"] = pd.to_numeric(mult["qty"], errors="coerce").fillna(1.0)
+    tokens["token_norm"] = tokens["token_name"].str.lower()
 
     # normalize token map keys for matching
     token_map = token_map.dropna(subset=["raw_token"]).copy()
@@ -121,6 +159,69 @@ def run_canonicalization(
     )
     tea_override = tea_choices[["row_id", "tea_base_override", "tea_override_conflict"]]
 
+    # Modifier toppings: explicit customer choices from the order string.
+    topping_rows = mapped[
+        mapped["token_type"].eq("topping") & mapped["canonical_value"].notna()
+    ].copy()
+    modifier_topping_qty_long = (
+        topping_rows.groupby(["row_id", "canonical_value"], as_index=False)["token_qty"]
+        .sum()
+    )
+
+    # Default toppings: components that always come with the item (e.g. Mosa signatures).
+    default_topping_qty_long = (
+        clean[["row_id", "category_key", "item_key"]]
+        .merge(
+            default_toppings[["category_key", "item_key", "component_key", "qty"]],
+            on=["category_key", "item_key"],
+            how="left",
+        )
+        .dropna(subset=["component_key"])
+        .rename(columns={"component_key": "canonical_value", "qty": "token_qty"})
+    )
+
+    # Combine modifier + default toppings, then collapse to per-row canonical features.
+    topping_qty_long = pd.concat(
+        [
+            modifier_topping_qty_long[["row_id", "canonical_value", "token_qty"]],
+            default_topping_qty_long[["row_id", "canonical_value", "token_qty"]],
+        ],
+        ignore_index=True,
+    )
+    topping_qty_long = (
+        topping_qty_long.groupby(["row_id", "canonical_value"], as_index=False)["token_qty"]
+        .sum()
+    )
+
+    toppings_list = (
+        topping_qty_long.groupby("row_id")["canonical_value"]
+        .agg(join_unique)
+        .rename("toppings_list")
+        .reset_index()
+    )
+
+    topping_qty_long["topping_pair"] = (
+        topping_qty_long["canonical_value"].astype(str).str.strip()
+        + ":"
+        + topping_qty_long["token_qty"].map(format_qty)
+    )
+    toppings_qty = (
+        topping_qty_long.sort_values(["row_id", "canonical_value"])
+        .groupby("row_id")["topping_pair"]
+        .agg("|".join)
+        .rename("toppings_qty")
+        .reset_index()
+    )
+    topping_stats = (
+        topping_qty_long.groupby("row_id")
+        .agg(
+            topping_types_count=("canonical_value", "nunique"),
+            topping_units_total=("token_qty", "sum"),
+            max_single_topping_qty=("token_qty", "max"),
+        )
+        .reset_index()
+    )
+
     # Build deterministic blend strings from weighted components.
     blend_rules = blend_rules.copy()
     blend_rules["share"] = pd.to_numeric(blend_rules["share"], errors="coerce")
@@ -149,6 +250,7 @@ def run_canonicalization(
         print("WARNING: blend share sums not equal to 1 for:")
         print(bad_share.to_string(index=False))
 
+    # Merge canonicalized features back to one row per original sale row.
     df = clean.merge(
         item_rules[["category_key", "item_key", "default_tea_base", "requires_tea_choice"]],
         on=["category_key", "item_key"],
@@ -156,10 +258,24 @@ def run_canonicalization(
     )
     df = df.merge(blend_agg, on=["category_key", "item_key"], how="left")
     df = df.merge(tea_override, on="row_id", how="left")
+    df = df.merge(toppings_list, on="row_id", how="left")
+    df = df.merge(toppings_qty, on="row_id", how="left")
+    df = df.merge(topping_stats, on="row_id", how="left")
 
     df["requires_tea_choice"] = (
         pd.to_numeric(df["requires_tea_choice"], errors="coerce").fillna(0).astype("Int64")
     )
+    df["toppings_list"] = df["toppings_list"].fillna("")
+    df["toppings_qty"] = df["toppings_qty"].fillna("")
+    df["topping_types_count"] = df["topping_types_count"].fillna(0).astype("Int64")
+    df["topping_units_total"] = df["topping_units_total"].fillna(0.0)
+    df["max_single_topping_qty"] = df["max_single_topping_qty"].fillna(0.0)
+    df["has_topping"] = df["topping_types_count"].gt(0)
+    df["has_multiple_toppings"] = df["topping_types_count"].gt(1)
+    df["topping_multiplier_class"] = "none_or_single"
+    df.loc[df["max_single_topping_qty"] >= 2, "topping_multiplier_class"] = "double"
+    df.loc[df["max_single_topping_qty"] >= 3, "topping_multiplier_class"] = "triple"
+    df.loc[df["max_single_topping_qty"] >= 4, "topping_multiplier_class"] = "quad_or_more"
 
     # Tea resolution precedence:
     # conflict -> override -> blend -> default -> missing_choice -> unknown
@@ -205,9 +321,22 @@ def run_canonicalization(
         & df["tea_resolution"].eq("unknown")
     )
     df.loc[missing_choice_mask, "tea_resolution"] = "missing_choice"
+
+    # QA signal for token-map maintenance: likely toppings that were not mapped.
+    unknown_topping_like = mapped[
+        mapped["token_type"].isna()
+        & mapped["token_name"].str.contains(
+            r"(?i)boba|jelly|foam|pudding|red bean|aloe", regex=True
+        )
+    ]
+    if not unknown_topping_like.empty:
+        print("Unknown topping-like tokens (top 20):")
+        print(unknown_topping_like["token_name"].value_counts().head(20).to_string())
     return df
 
+
 def write_outputs(df, output_path, debug_output_path):
+    """Write full debug output and a slim analysis output."""
     output_path = Path(output_path)
     debug_output_path = Path(debug_output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,6 +358,14 @@ def write_outputs(df, output_path, debug_output_path):
         "Modifiers Applied",
         "ice_pct",
         "sugar_pct",
+        "has_topping",
+        "has_multiple_toppings",
+        "toppings_list",
+        "toppings_qty",
+        "topping_types_count",
+        "topping_units_total",
+        "max_single_topping_qty",
+        "topping_multiplier_class",
         "category_key",
         "item_key",
         "tea_base_final",
