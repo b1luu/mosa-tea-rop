@@ -20,6 +20,7 @@ USE_COLS = [
 CJK_PATTERN = r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]"
 FREE_DRINK_ITEM = "Free Drink (100☼ Reward)"
 FIXED_ICE_ITEMS = {
+    "Matcha Latte",
     "Strawberry Matcha Latte",
     "Mango Matcha Latte",
     "Chestnut Forest",
