@@ -4,6 +4,8 @@ import re
 
 import pandas as pd
 
+NUMERIC_SETTING_RE = r"(?i)^(?:no\s*ice|no\s*sugar|\d{1,3}\s*%\s*ice|\d{1,3}\s*%\s*sugar)$"
+
 
 def norm_key(v):
     """Normalize free text into a stable snake_case join key."""
@@ -55,6 +57,14 @@ def parse_args():
         "--debug-output",
         default="data/trim/canonicalized_debug.csv",
         help="Debug canonicalized output path.",
+    )
+    parser.add_argument(
+        "--unknown-output",
+        default="",
+        help=(
+            "Optional unknown modifier token report path. "
+            "Default: sibling file named unknown_modifier_tokens.csv next to --output."
+        ),
     )
     return parser.parse_args()
 
@@ -135,6 +145,24 @@ def run_canonicalization(
     mapped["tea_value_norm"] = mapped["canonical_value"].apply(
         lambda v: tea_value_map.get(v, v)
     )
+
+    # Unknown tokens are unmapped modifier names excluding numeric ice/sugar settings.
+    unknown_modifier_rows = mapped[mapped["token_type"].isna()].copy()
+    unknown_modifier_rows = unknown_modifier_rows[
+        ~unknown_modifier_rows["token_name"].str.match(NUMERIC_SETTING_RE, na=False)
+    ].copy()
+    unknown_modifier_summary = (
+        unknown_modifier_rows.groupby("token_name", as_index=False)
+        .agg(
+            count=("token_name", "size"),
+            rows_affected=("row_id", "nunique"),
+        )
+        .sort_values(["count", "token_name"], ascending=[False, True])
+    )
+    if unknown_modifier_summary.empty:
+        unknown_modifier_summary = pd.DataFrame(
+            columns=["token_name", "count", "rows_affected"]
+        )
 
     tea_choices = (
         mapped[mapped["token_type"].eq("tea_base") & mapped["tea_value_norm"].notna()]
@@ -322,25 +350,17 @@ def run_canonicalization(
     )
     df.loc[missing_choice_mask, "tea_resolution"] = "missing_choice"
 
-    # QA signal for token-map maintenance: likely toppings that were not mapped.
-    unknown_topping_like = mapped[
-        mapped["token_type"].isna()
-        & mapped["token_name"].str.contains(
-            r"(?i)boba|jelly|foam|pudding|red bean|aloe", regex=True
-        )
-    ]
-    if not unknown_topping_like.empty:
-        print("Unknown topping-like tokens (top 20):")
-        print(unknown_topping_like["token_name"].value_counts().head(20).to_string())
-    return df
+    return df, unknown_modifier_summary
 
 
-def write_outputs(df, output_path, debug_output_path):
+def write_outputs(df, unknown_modifier_summary, output_path, debug_output_path, unknown_output_path):
     """Write full debug output and a slim analysis output."""
     output_path = Path(output_path)
     debug_output_path = Path(debug_output_path)
+    unknown_output_path = Path(unknown_output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     debug_output_path.parent.mkdir(parents=True, exist_ok=True)
+    unknown_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print("tea_resolution counts:")
     print(df["tea_resolution"].value_counts(dropna=False).to_string())
@@ -374,16 +394,34 @@ def write_outputs(df, output_path, debug_output_path):
     df_final.to_csv(output_path, index=False)
     print(f"wrote {output_path}")
 
+    unknown_modifier_summary.to_csv(unknown_output_path, index=False)
+    unknown_count = (
+        int(unknown_modifier_summary["count"].sum())
+        if not unknown_modifier_summary.empty
+        else 0
+    )
+    print(f"Unknown modifier token count: {unknown_count}")
+    print(f"wrote {unknown_output_path}")
+
 def main():
     args = parse_args()
-    df = run_canonicalization(
+    df, unknown_modifier_summary = run_canonicalization(
         clean_path=args.input,
         token_map_path=args.token_map,
         item_rules_path=args.item_rules,
         blend_rules_path=args.blend_rules,
         default_components_path=args.default_components,
     )
-    write_outputs(df, args.output, args.debug_output)
+    unknown_output_path = args.unknown_output or str(
+        Path(args.output).with_name("unknown_modifier_tokens.csv")
+    )
+    write_outputs(
+        df=df,
+        unknown_modifier_summary=unknown_modifier_summary,
+        output_path=args.output,
+        debug_output_path=args.debug_output,
+        unknown_output_path=unknown_output_path,
+    )
 
 
 if __name__ == "__main__":
