@@ -130,6 +130,8 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 "tea_resolution",
             ],
         )
+        self.assertNotIn("Modifiers Applied", slim.columns)
+        self.assertIn("Modifiers Applied", debug.columns)
         self.assertIn("tea_blend", debug.columns)
         self.assertIn("tea_base_override", debug.columns)
         self.assertIn("requires_tea_choice", debug.columns)
