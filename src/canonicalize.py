@@ -365,6 +365,11 @@ def write_outputs(df, unknown_modifier_summary, output_path, debug_output_path, 
     print("tea_resolution counts:")
     print(df["tea_resolution"].value_counts(dropna=False).to_string())
 
+    # Sort deterministically to reduce noisy diffs across runs.
+    sort_cols = [c for c in ["Date", "category_key", "item_key", "row_id"] if c in df.columns]
+    if sort_cols:
+        df = df.sort_values(sort_cols, kind="mergesort").reset_index(drop=True)
+
     # Write full debug output (all intermediate columns).
     df.to_csv(debug_output_path, index=False)
     print(f"wrote {debug_output_path}")
