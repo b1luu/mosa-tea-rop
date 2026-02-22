@@ -1,4 +1,3 @@
-# Notes
+# Mosa Tea Reorder Point Pipeline
 
-In efforts with trying to calculuate a precise reorder point for Mosa Tea's Tea Bases, I have created another repo to do some simulation and separate focus. 
-
+Privacy-safe pipeline for Mosa Tea reorder-point analysis: clean Square exports, canonicalize items/modifiers, resolve tea-base/topping usage and produce analysis and debug CSVs with unknown-token reports and CI tests for reliable inventory planning.
