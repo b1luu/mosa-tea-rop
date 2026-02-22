@@ -35,6 +35,7 @@ class CanonicalizePipelineTests(unittest.TestCase):
             default_components_path = tmp_path / "item_default_component.csv"
             output_path = tmp_path / "out" / "canonicalized.csv"
             debug_output_path = tmp_path / "out" / "canonicalized_debug.csv"
+            unknown_output_path = tmp_path / "out" / "unknown_modifier_tokens.csv"
 
             write_csv(
                 clean_path,
@@ -93,6 +94,14 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 cwd=str(REPO_ROOT),
             )
 
+            if not unknown_output_path.exists():
+                raise AssertionError("unknown_modifier_tokens.csv was not created.")
+            unknown_cols = pd.read_csv(unknown_output_path).columns.tolist()
+            if unknown_cols != ["token_name", "count", "rows_affected"]:
+                raise AssertionError(
+                    f"Unexpected unknown token output columns: {unknown_cols}"
+                )
+
             return pd.read_csv(output_path), pd.read_csv(debug_output_path)
 
     def test_writes_two_outputs_with_expected_columns(self):
@@ -114,7 +123,6 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 "Category",
                 "Item",
                 "Qty",
-                "Modifiers Applied",
                 "ice_pct",
                 "sugar_pct",
                 "has_topping",
@@ -131,6 +139,8 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 "tea_resolution",
             ],
         )
+        self.assertNotIn("Modifiers Applied", slim.columns)
+        self.assertIn("Modifiers Applied", debug.columns)
         self.assertIn("tea_blend", debug.columns)
         self.assertIn("tea_base_override", debug.columns)
         self.assertIn("requires_tea_choice", debug.columns)
