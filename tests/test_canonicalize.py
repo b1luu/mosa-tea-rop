@@ -114,7 +114,6 @@ class CanonicalizePipelineTests(unittest.TestCase):
                 "Category",
                 "Item",
                 "Qty",
-                "Modifiers Applied",
                 "ice_pct",
                 "sugar_pct",
                 "has_topping",

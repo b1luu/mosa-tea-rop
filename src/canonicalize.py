@@ -355,7 +355,6 @@ def write_outputs(df, output_path, debug_output_path):
         "Category",
         "Item",
         "Qty",
-        "Modifiers Applied",
         "ice_pct",
         "sugar_pct",
         "has_topping",
