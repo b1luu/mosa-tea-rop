@@ -25,6 +25,8 @@ MANUAL_SAMPLE_FILES = [
     "manual_samples_100pct.csv",
 ]
 
+ZERO_ICE_BASE_ML = 550.0
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Estimate tea usage from line items.")
@@ -203,12 +205,18 @@ def main() -> None:
     ice_bucket = []
     imputed = []
     for value in df["ice_pct"]:
+        if pd.notna(value) and int(round(float(value))) == 0:
+            ice_bucket.append(0)
+            imputed.append(False)
+            continue
         bucket, flag = assign_ice_bucket(value, ice_keys, args.ice_fallback)
         ice_bucket.append(bucket)
         imputed.append(flag)
     df["ice_pct_bucket"] = ice_bucket
     df["ice_pct_imputed"] = imputed
     df["base_tea_ml"] = df["ice_pct_bucket"].map(manual_means)
+    zero_mask = df["ice_pct_bucket"].eq(0)
+    df.loc[zero_mask, "base_tea_ml"] = ZERO_ICE_BASE_ML
 
     df["topping_types_count"] = pd.to_numeric(
         df["topping_types_count"], errors="coerce"
