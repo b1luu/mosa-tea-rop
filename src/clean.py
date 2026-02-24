@@ -10,11 +10,13 @@ OUTPUT_PATH = "data/trim/clean.csv"
 
 USE_COLS = [
     "Date",
+    "Time",
     "Category",
     "Item",
     "Qty",
     "Modifiers Applied",
     "Event Type",
+    "Transaction ID",
 ]
 
 CJK_PATTERN = r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]"

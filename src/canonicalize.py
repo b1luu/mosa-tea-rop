@@ -54,6 +54,14 @@ def parse_args():
         help="Slim canonicalized output path.",
     )
     parser.add_argument(
+        "--line-item-output",
+        default="",
+        help=(
+            "Optional line-item output path. "
+            "Default: sibling file named canonicalized_line_items.csv next to --output."
+        ),
+    )
+    parser.add_argument(
         "--debug-output",
         default="data/trim/canonicalized_debug.csv",
         help="Debug canonicalized output path.",
@@ -353,14 +361,23 @@ def run_canonicalization(
     return df, unknown_modifier_summary
 
 
-def write_outputs(df, unknown_modifier_summary, output_path, debug_output_path, unknown_output_path):
+def write_outputs(
+    df,
+    unknown_modifier_summary,
+    output_path,
+    debug_output_path,
+    unknown_output_path,
+    line_item_output_path,
+):
     """Write full debug output and a slim analysis output."""
     output_path = Path(output_path)
     debug_output_path = Path(debug_output_path)
     unknown_output_path = Path(unknown_output_path)
+    line_item_output_path = Path(line_item_output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     debug_output_path.parent.mkdir(parents=True, exist_ok=True)
     unknown_output_path.parent.mkdir(parents=True, exist_ok=True)
+    line_item_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print("tea_resolution counts:")
     print(df["tea_resolution"].value_counts(dropna=False).to_string())
@@ -377,6 +394,8 @@ def write_outputs(df, unknown_modifier_summary, output_path, debug_output_path, 
     # Write slim analysis output (reduced clutter).
     final_cols = [
         "Date",
+        "Time",
+        "Transaction ID",
         "Category",
         "Item",
         "Qty",
@@ -399,6 +418,25 @@ def write_outputs(df, unknown_modifier_summary, output_path, debug_output_path, 
     df_final.to_csv(output_path, index=False)
     print(f"wrote {output_path}")
 
+    line_df = df[final_cols].copy()
+    line_df["line_group_id"] = df["row_id"]
+    qty = pd.to_numeric(line_df["Qty"], errors="coerce").fillna(0)
+    qty_int = qty.round().astype(int)
+    non_int_mask = (qty - qty_int).abs() > 1e-6
+    if non_int_mask.any():
+        raise ValueError(
+            f"Non-integer Qty in {int(non_int_mask.sum())} rows; cannot explode line items."
+        )
+    qty_int = qty_int.clip(lower=0)
+    line_df = line_df.loc[line_df.index.repeat(qty_int)].copy()
+    line_df["Qty"] = 1
+    line_df["line_item_index"] = (
+        line_df.groupby("line_group_id").cumcount() + 1
+    )
+    line_df.reset_index(drop=True, inplace=True)
+    line_df.to_csv(line_item_output_path, index=False)
+    print(f"wrote {line_item_output_path}")
+
     unknown_modifier_summary.to_csv(unknown_output_path, index=False)
     unknown_count = (
         int(unknown_modifier_summary["count"].sum())
@@ -420,12 +458,16 @@ def main():
     unknown_output_path = args.unknown_output or str(
         Path(args.output).with_name("unknown_modifier_tokens.csv")
     )
+    line_item_output_path = args.line_item_output or str(
+        Path(args.output).with_name("canonicalized_line_items.csv")
+    )
     write_outputs(
         df=df,
         unknown_modifier_summary=unknown_modifier_summary,
         output_path=args.output,
         debug_output_path=args.debug_output,
         unknown_output_path=unknown_output_path,
+        line_item_output_path=line_item_output_path,
     )
 
 
