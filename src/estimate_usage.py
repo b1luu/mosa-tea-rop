@@ -72,8 +72,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--tea-component-filter",
-        default="tie_guan_yin",
-        help="Tea component to filter for monthly weekday averages.",
+        default="",
+        help="Optional tea component filter for monthly weekday averages.",
     )
     parser.add_argument(
         "--start-date",
@@ -347,27 +347,22 @@ def main() -> None:
     print(f"wrote {weekday_output_path}")
 
     component_filter = args.tea_component_filter.strip()
-    filtered = components_df[
-        components_df["tea_component"].astype(str).str.strip().eq(component_filter)
-    ].copy()
-    if filtered.empty:
-        print(f"WARNING: no rows found for tea_component '{component_filter}'.")
+    filtered = components_df.copy()
+    if component_filter:
+        filtered = filtered[
+            filtered["tea_component"].astype(str).str.strip().eq(component_filter)
+        ].copy()
+        if filtered.empty:
+            print(f"WARNING: no rows found for tea_component '{component_filter}'.")
     filtered["Date"] = pd.to_datetime(filtered["Date"], errors="coerce")
     filtered = filtered.dropna(subset=["Date"])
     filtered["month"] = filtered["Date"].dt.to_period("M").astype(str)
     filtered["weekday"] = filtered["Date"].dt.day_name()
-    daily_component = (
-        filtered.groupby(["Date", "month", "weekday"], as_index=False)
-        .agg(
-            drink_count=("line_item_id", "nunique"),
-            tea_ml_total=("tea_component_ml_est", "sum"),
-        )
-    )
     monthly_weekday = (
-        daily_component.groupby(["month", "weekday"], as_index=False)
+        filtered.groupby(["month", "weekday", "tea_component"], as_index=False)
         .agg(
-            avg_tea_ml_total=("tea_ml_total", "mean"),
-            avg_drink_count=("drink_count", "mean"),
+            avg_tea_ml=("tea_component_ml_est", "mean"),
+            drink_count=("line_item_id", "nunique"),
             days_count=("Date", "nunique"),
         )
     )
@@ -383,7 +378,9 @@ def main() -> None:
     monthly_weekday["weekday"] = pd.Categorical(
         monthly_weekday["weekday"], categories=weekday_order, ordered=True
     )
-    monthly_weekday = monthly_weekday.sort_values(["month", "weekday"])
+    monthly_weekday = monthly_weekday.sort_values(
+        ["month", "weekday", "tea_component"]
+    )
     monthly_weekday.to_csv(monthly_weekday_output_path, index=False)
     print(f"wrote {monthly_weekday_output_path}")
 
