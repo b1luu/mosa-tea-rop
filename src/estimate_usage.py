@@ -61,6 +61,21 @@ def parse_args() -> argparse.Namespace:
         help="Output CSV path for daily component summary.",
     )
     parser.add_argument(
+        "--weekday-output",
+        default="data/analysis/usage_weekday_summary.csv",
+        help="Output CSV path for weekday averages.",
+    )
+    parser.add_argument(
+        "--monthly-weekday-output",
+        default="data/analysis/usage_monthly_weekday_summary.csv",
+        help="Output CSV path for month + weekday averages.",
+    )
+    parser.add_argument(
+        "--tea-component-filter",
+        default="tie_guan_yin",
+        help="Tea component to filter for monthly weekday averages.",
+    )
+    parser.add_argument(
         "--start-date",
         default="",
         help="Inclusive start date (YYYY-MM-DD).",
@@ -174,10 +189,14 @@ def main() -> None:
     output_path = Path(args.output)
     component_output_path = Path(args.component_output)
     summary_output_path = Path(args.summary_output)
+    weekday_output_path = Path(args.weekday_output)
+    monthly_weekday_output_path = Path(args.monthly_weekday_output)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     component_output_path.parent.mkdir(parents=True, exist_ok=True)
     summary_output_path.parent.mkdir(parents=True, exist_ok=True)
+    weekday_output_path.parent.mkdir(parents=True, exist_ok=True)
+    monthly_weekday_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     manual_means = load_manual_means(samples_dir)
     ice_keys = sorted(manual_means.keys())
@@ -293,6 +312,80 @@ def main() -> None:
     )
     summary.to_csv(summary_output_path, index=False)
     print(f"wrote {summary_output_path}")
+
+    daily_totals = (
+        components_df.groupby(["Date", "tea_component"], as_index=False)
+        .agg(
+            drink_count=("line_item_id", "nunique"),
+            tea_ml_total=("tea_component_ml_est", "sum"),
+        )
+        .sort_values(["Date", "tea_component"])
+    )
+    daily_totals["weekday"] = pd.to_datetime(daily_totals["Date"]).dt.day_name()
+    weekday_summary = (
+        daily_totals.groupby(["weekday", "tea_component"], as_index=False)
+        .agg(
+            avg_tea_ml_total=("tea_ml_total", "mean"),
+            avg_drink_count=("drink_count", "mean"),
+            days_count=("Date", "nunique"),
+        )
+    )
+    weekday_order = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    weekday_summary["weekday"] = pd.Categorical(
+        weekday_summary["weekday"], categories=weekday_order, ordered=True
+    )
+    weekday_summary = weekday_summary.sort_values(["weekday", "tea_component"])
+    weekday_summary.to_csv(weekday_output_path, index=False)
+    print(f"wrote {weekday_output_path}")
+
+    component_filter = args.tea_component_filter.strip()
+    filtered = components_df[
+        components_df["tea_component"].astype(str).str.strip().eq(component_filter)
+    ].copy()
+    if filtered.empty:
+        print(f"WARNING: no rows found for tea_component '{component_filter}'.")
+    filtered["Date"] = pd.to_datetime(filtered["Date"], errors="coerce")
+    filtered = filtered.dropna(subset=["Date"])
+    filtered["month"] = filtered["Date"].dt.to_period("M").astype(str)
+    filtered["weekday"] = filtered["Date"].dt.day_name()
+    daily_component = (
+        filtered.groupby(["Date", "month", "weekday"], as_index=False)
+        .agg(
+            drink_count=("line_item_id", "nunique"),
+            tea_ml_total=("tea_component_ml_est", "sum"),
+        )
+    )
+    monthly_weekday = (
+        daily_component.groupby(["month", "weekday"], as_index=False)
+        .agg(
+            avg_tea_ml_total=("tea_ml_total", "mean"),
+            avg_drink_count=("drink_count", "mean"),
+            days_count=("Date", "nunique"),
+        )
+    )
+    weekday_order = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    monthly_weekday["weekday"] = pd.Categorical(
+        monthly_weekday["weekday"], categories=weekday_order, ordered=True
+    )
+    monthly_weekday = monthly_weekday.sort_values(["month", "weekday"])
+    monthly_weekday.to_csv(monthly_weekday_output_path, index=False)
+    print(f"wrote {monthly_weekday_output_path}")
 
 
 if __name__ == "__main__":
