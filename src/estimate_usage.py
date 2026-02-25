@@ -130,16 +130,21 @@ def load_manual_means(samples_dir: Path) -> dict:
 
 def load_recipe_overrides(path: Path) -> pd.DataFrame:
     if not path.exists():
-        return pd.DataFrame(columns=["item_name", "tea_base_ml", "milk_ml", "ice"])
+        return pd.DataFrame(
+            columns=["item_name", "tea_base_ml", "milk_ml", "ice", "match_tokens"]
+        )
     df = pd.read_csv(path)
     df["item_name"] = df["item_name"].astype(str).str.strip()
     df["tea_base_ml"] = pd.to_numeric(df.get("tea_base_ml"), errors="coerce")
     df["milk_ml"] = pd.to_numeric(df.get("milk_ml"), errors="coerce")
     df["ice"] = df.get("ice", "").astype(str).str.strip().str.lower()
+    df["match_tokens"] = df.get("match_tokens", "").fillna("").astype(str).str.strip()
     df = df[df["item_name"].ne("")].copy()
-    df["name_len"] = df["item_name"].str.len()
-    return df.sort_values("name_len", ascending=False)[
-        ["item_name", "tea_base_ml", "milk_ml", "ice"]
+    df["match_priority"] = df["match_tokens"].where(
+        df["match_tokens"].ne(""), df["item_name"]
+    ).str.len()
+    return df.sort_values("match_priority", ascending=False)[
+        ["item_name", "tea_base_ml", "milk_ml", "ice", "match_tokens"]
     ]
 
 
