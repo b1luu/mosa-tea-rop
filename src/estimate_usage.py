@@ -26,6 +26,8 @@ MANUAL_SAMPLE_FILES = [
 ]
 
 ZERO_ICE_BASE_ML = 550.0
+TEA_JELLY_ML_PER_SCOOP = 87.0
+TEA_JELLY_TOPPING_KEYS = {"tea_jelly", "tgy_jelly", "osmanthus_tgy_jelly"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -219,6 +221,39 @@ def parse_components(tea_base_final: str):
     return [(name, share / total) for name, share in comps]
 
 
+def parse_topping_qty(value: str) -> dict:
+    if value is None or str(value).strip() == "":
+        return {}
+    items: dict[str, float] = {}
+    for part in str(value).split("|"):
+        token = part.strip()
+        if token == "":
+            continue
+        if ":" in token:
+            name, qty = token.split(":", 1)
+        else:
+            name, qty = token, "1"
+        name = name.strip()
+        try:
+            qty_val = float(qty)
+        except (TypeError, ValueError):
+            qty_val = 1.0
+        if name == "":
+            continue
+        items[name] = items.get(name, 0.0) + qty_val
+    return items
+
+
+def extract_topping_units(toppings_qty: str, toppings_list: str, target_keys: set) -> float:
+    qtys = parse_topping_qty(toppings_qty)
+    if not qtys:
+        for name in str(toppings_list).split("|"):
+            token = name.strip()
+            if token:
+                qtys[token] = qtys.get(token, 0.0) + 1.0
+    return float(sum(qtys.get(key, 0.0) for key in target_keys))
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
@@ -378,6 +413,16 @@ def main() -> None:
     df["tea_base_ml_raw"] = df["base_tea_ml"] * (1 - df["topping_reduction_pct"])
     df["tea_base_ml_est"] = round_half_up(df["tea_base_ml_raw"]).astype("Int64")
 
+    df["tea_jelly_units"] = df.apply(
+        lambda row: extract_topping_units(
+            row.get("toppings_qty", ""),
+            row.get("toppings_list", ""),
+            TEA_JELLY_TOPPING_KEYS,
+        ),
+        axis=1,
+    )
+    df["tea_jelly_ml_est"] = df["tea_jelly_units"] * TEA_JELLY_ML_PER_SCOOP
+
     if "line_group_id" not in df.columns:
         df["line_group_id"] = df.index
     if "line_item_index" not in df.columns:
@@ -408,6 +453,8 @@ def main() -> None:
         "base_tea_ml",
         "topping_reduction_pct",
         "tea_base_ml_est",
+        "tea_jelly_units",
+        "tea_jelly_ml_est",
         "line_group_id",
         "line_item_index",
         "line_item_id",
@@ -436,6 +483,30 @@ def main() -> None:
                 }
             )
     components_df = pd.DataFrame(component_rows)
+
+    # Add Tie Guan Yin tea usage from tea jelly toppings.
+    jelly_rows = []
+    for _, row in df[df["tea_jelly_units"].gt(0)].iterrows():
+        jelly_ml = float(row.get("tea_jelly_ml_est", 0.0))
+        if jelly_ml <= 0:
+            continue
+        jelly_rows.append(
+            {
+                "Date": row.get("Date"),
+                "Transaction ID": row.get("Transaction ID"),
+                "Item": row.get("Item"),
+                "ice_pct": row.get("ice_pct"),
+                "sugar_pct": row.get("sugar_pct"),
+                "tea_component": "tie_guan_yin",
+                "tea_component_share": 1.0,
+                "tea_component_ml_est": jelly_ml,
+                "line_item_id": row.get("line_item_id"),
+            }
+        )
+    if jelly_rows:
+        components_df = pd.concat(
+            [components_df, pd.DataFrame(jelly_rows)], ignore_index=True
+        )
     components_df.to_csv(component_output_path, index=False)
     print(f"wrote {component_output_path}")
 
@@ -556,6 +627,10 @@ def main() -> None:
         {
             "metric": "topping_reduction_applied",
             "value": int((df["topping_reduction_pct"] > 0).sum()),
+        },
+        {
+            "metric": "tea_jelly_units_total",
+            "value": float(df["tea_jelly_units"].sum()),
         },
     ]
     pd.DataFrame(validation).to_csv(validation_output_path, index=False)
