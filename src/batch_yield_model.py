@@ -26,13 +26,24 @@ DEFAULT_LEAF_GRAMS: Dict[str, float] = {
     "genmai": 120,
 }
 
+DEFAULT_BATCH_WATER_ICE: Dict[str, Dict[str, float]] = {
+    # Standard cold-brew style: 4200 hot water + 2800 ice
+    "tie_guan_yin": {"hot_water_ml": 4200, "ice_grams": 2800},
+    "four_seasons": {"hot_water_ml": 4200, "ice_grams": 2800},
+    "green_tea": {"hot_water_ml": 4200, "ice_grams": 2800},
+    # Long brew: 6000 hot water, no ice
+    "matured_black": {"hot_water_ml": 6000, "ice_grams": 0},
+    "buckwheat": {"hot_water_ml": 6000, "ice_grams": 0},
+    "genmai": {"hot_water_ml": 6000, "ice_grams": 0},
+}
+
 
 def estimate_batch_yield_ml(
     tea_key: str,
     leaf_grams: float | None = None,
     *,
-    hot_water_ml: float = 6000,
-    ice_grams: float = 0,
+    hot_water_ml: float | None = None,
+    ice_grams: float | None = None,
     process_loss_ml: float = 0,
 ) -> Tuple[float, float, float]:
     """Estimate batch yield in mL for a tea key.
@@ -47,6 +58,14 @@ def estimate_batch_yield_ml(
         if tea_key not in DEFAULT_LEAF_GRAMS:
             raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
         leaf_grams = DEFAULT_LEAF_GRAMS[tea_key]
+
+    batch_defaults = DEFAULT_BATCH_WATER_ICE.get(
+        tea_key, {"hot_water_ml": 6000, "ice_grams": 0}
+    )
+    if hot_water_ml is None:
+        hot_water_ml = batch_defaults["hot_water_ml"]
+    if ice_grams is None:
+        ice_grams = batch_defaults["ice_grams"]
 
     for name, value in {
         "leaf_grams": leaf_grams,
@@ -79,14 +98,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hot-water-ml",
         type=float,
-        default=6000,
-        help="Hot water volume in mL (default: 6000).",
+        default=None,
+        help="Hot water volume in mL (default: per-tea batch config).",
     )
     parser.add_argument(
         "--ice-grams",
         type=float,
-        default=0,
-        help="Ice in grams (assume 1 g = 1 mL water; default: 0).",
+        default=None,
+        help="Ice in grams (assume 1 g = 1 mL water; default: per-tea batch config).",
     )
     parser.add_argument(
         "--process-loss-ml",
