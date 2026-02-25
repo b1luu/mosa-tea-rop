@@ -38,6 +38,21 @@ DEFAULT_BATCH_WATER_ICE: Dict[str, Dict[str, float]] = {
 }
 
 
+def resolve_batch_inputs(
+    tea_key: str,
+    hot_water_ml: float | None,
+    ice_grams: float | None,
+) -> Tuple[float, float]:
+    batch_defaults = DEFAULT_BATCH_WATER_ICE.get(
+        tea_key, {"hot_water_ml": 6000, "ice_grams": 0}
+    )
+    resolved_hot_water_ml = (
+        batch_defaults["hot_water_ml"] if hot_water_ml is None else hot_water_ml
+    )
+    resolved_ice_grams = batch_defaults["ice_grams"] if ice_grams is None else ice_grams
+    return resolved_hot_water_ml, resolved_ice_grams
+
+
 def estimate_batch_yield_ml(
     tea_key: str,
     leaf_grams: float | None = None,
@@ -59,13 +74,11 @@ def estimate_batch_yield_ml(
             raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
         leaf_grams = DEFAULT_LEAF_GRAMS[tea_key]
 
-    batch_defaults = DEFAULT_BATCH_WATER_ICE.get(
-        tea_key, {"hot_water_ml": 6000, "ice_grams": 0}
+    hot_water_ml, ice_grams = resolve_batch_inputs(
+        tea_key=tea_key,
+        hot_water_ml=hot_water_ml,
+        ice_grams=ice_grams,
     )
-    if hot_water_ml is None:
-        hot_water_ml = batch_defaults["hot_water_ml"]
-    if ice_grams is None:
-        ice_grams = batch_defaults["ice_grams"]
 
     for name, value in {
         "leaf_grams": leaf_grams,
@@ -138,19 +151,24 @@ def main() -> None:
             leaf_grams = DEFAULT_LEAF_GRAMS.get(tea_key)
         if leaf_grams is None:
             raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
+        resolved_hot_water_ml, resolved_ice_grams = resolve_batch_inputs(
+            tea_key=tea_key,
+            hot_water_ml=args.hot_water_ml,
+            ice_grams=args.ice_grams,
+        )
         yield_ml, absorbed_ml, absorb_ml_per_g = estimate_batch_yield_ml(
             tea_key=tea_key,
             leaf_grams=leaf_grams,
-            hot_water_ml=args.hot_water_ml,
-            ice_grams=args.ice_grams,
+            hot_water_ml=resolved_hot_water_ml,
+            ice_grams=resolved_ice_grams,
             process_loss_ml=args.process_loss_ml,
         )
         rows.append(
             {
                 "tea_key": tea_key,
                 "leaf_grams": leaf_grams,
-                "hot_water_ml": args.hot_water_ml,
-                "ice_grams": args.ice_grams,
+                "hot_water_ml": resolved_hot_water_ml,
+                "ice_grams": resolved_ice_grams,
                 "process_loss_ml": args.process_loss_ml,
                 "absorb_ml_per_g": absorb_ml_per_g,
                 "absorbed_ml": absorbed_ml,
