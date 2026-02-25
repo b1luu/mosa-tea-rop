@@ -8,14 +8,17 @@ import pandas as pd
 INPUT_PATH = "data/raw/raw.csv"
 OUTPUT_PATH = "data/trim/clean.csv"
 
-USE_COLS = [
+REQUIRED_COLS = [
     "Date",
-    "Time",
     "Category",
     "Item",
     "Qty",
     "Modifiers Applied",
     "Event Type",
+]
+
+OPTIONAL_COLS = [
+    "Time",
     "Transaction ID",
 ]
 
@@ -58,9 +61,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    header = pd.read_csv(args.input, nrows=0, low_memory=False).columns.tolist()
+    missing_required = [c for c in REQUIRED_COLS if c not in header]
+    if missing_required:
+        raise ValueError(f"Missing required columns: {missing_required}")
+    usecols = [c for c in REQUIRED_COLS + OPTIONAL_COLS if c in header]
     clean = pd.read_csv(
         args.input,
-        usecols=USE_COLS,
+        usecols=usecols,
         low_memory=False,
     )
 
