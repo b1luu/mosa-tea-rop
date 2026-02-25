@@ -35,46 +35,31 @@ jobs:
           rows = [
               {
                   "Date": "2026-01-01",
-                  "Time": "09:00:00",
                   "Category": "Mosa Signature",
                   "Item": "TGY Special",
                   "Qty": "1",
                   "Modifiers Applied": "50% Ice, 75% Sugar",
                   "Event Type": "Payment",
-                  "Transaction ID": "tx-001",
               },
               {
                   "Date": "2026-01-02",
-                  "Time": "10:00:00",
                   "Category": "Seasonal Special",
                   "Item": "Hot Spice Apple Tea Cider",
                   "Qty": "1",
                   "Modifiers Applied": "50% Sugar",
                   "Event Type": "Payment",
-                  "Transaction ID": "tx-002",
               },
               {
                   "Date": "2026-01-03",
-                  "Time": "11:00:00",
                   "Category": "Matcha Series",
                   "Item": "Strawberry Matcha Latte",
                   "Qty": "1",
                   "Modifiers Applied": "50% Sugar",
                   "Event Type": "Payment",
-                  "Transaction ID": "tx-003",
               },
           ]
 
-          fieldnames = [
-              "Date",
-              "Time",
-              "Category",
-              "Item",
-              "Qty",
-              "Modifiers Applied",
-              "Event Type",
-              "Transaction ID",
-          ]
+          fieldnames = ["Date", "Category", "Item", "Qty", "Modifiers Applied", "Event Type"]
           with fixture_path.open("w", newline="", encoding="utf-8") as f:
               writer = csv.DictWriter(f, fieldnames=fieldnames)
               writer.writeheader()
