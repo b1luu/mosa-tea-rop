@@ -29,41 +29,58 @@ class CleanPipelineContractTests(unittest.TestCase):
                     # Should default to 100% Ice.
                     [
                         "2026-01-01",
+                        "12:00:00",
                         "Matcha Series",
                         "Matcha Latte",
                         1,
                         "25% Sugar",
                         "Payment",
+                        "tx-1",
                     ],
                     # Existing fixed-ice rule should still work.
                     [
                         "2026-01-01",
+                        "12:05:00",
                         "Matcha Series",
                         "Strawberry Matcha Latte",
                         1,
                         "No Sugar",
                         "Payment",
+                        "tx-2",
                     ],
                     # Hot drinks with no explicit ice token should default to 0% ice.
                     [
                         "2026-01-01",
+                        "12:10:00",
                         "Seasonal Special",
                         "Hot Spice Apple Tea Cider",
                         1,
                         "50% Sugar",
                         "Payment",
+                        "tx-3",
                     ],
                     # Refund should be excluded.
                     [
                         "2026-01-01",
+                        "12:15:00",
                         "Matcha Series",
                         "Matcha Latte",
                         -1,
                         "25% Sugar",
                         "Refund",
+                        "tx-4",
                     ],
                 ],
-                ["Date", "Category", "Item", "Qty", "Modifiers Applied", "Event Type"],
+                [
+                    "Date",
+                    "Time",
+                    "Category",
+                    "Item",
+                    "Qty",
+                    "Modifiers Applied",
+                    "Event Type",
+                    "Transaction ID",
+                ],
             )
 
             subprocess.run(

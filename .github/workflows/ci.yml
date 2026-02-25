@@ -47,7 +47,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas
+          pip install pandas numpy
 
       - name: Run canonicalization tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
@@ -228,4 +228,153 @@ jobs:
           print("Validation passed.")
           print(f"Rows: {len(df)}")
           print(f"Qty sum: {qty.sum()}")
+          PY
+
+      - name: Build synthetic canonicalized line items fixture
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          fixture_path = Path("tmp/ci_canonicalized_line_items.csv")
+          fixture_path.parent.mkdir(parents=True, exist_ok=True)
+
+          rows = [
+              {
+                  "Date": "2026-01-10",
+                  "Category": "Matcha Series",
+                  "Item": "Matcha Latte",
+                  "ice_pct": 25,
+                  "sugar_pct": 50,
+                  "tea_base_final": "matcha",
+                  "tea_resolution": "default",
+                  "toppings_list": "",
+                  "toppings_qty": "",
+                  "topping_types_count": 0,
+                  "category_key": "matcha_series",
+                  "item_key": "matcha_latte",
+              },
+              {
+                  "Date": "2026-01-10",
+                  "Category": "Au Lait(Fresh Milk)",
+                  "Item": "Genmai Green Au Lait",
+                  "ice_pct": 50,
+                  "sugar_pct": 0,
+                  "tea_base_final": "genmai:0.5|green:0.5",
+                  "tea_resolution": "blend",
+                  "toppings_list": "boba",
+                  "toppings_qty": "boba:1",
+                  "topping_types_count": 1,
+                  "category_key": "au_lait_fresh_milk",
+                  "item_key": "genmai_green_au_lait",
+              },
+              {
+                  "Date": "2026-01-10",
+                  "Category": "Mosa Signature",
+                  "Item": "TGY Special",
+                  "ice_pct": 0,
+                  "sugar_pct": 75,
+                  "tea_base_final": "tie_guan_yin",
+                  "tea_resolution": "default",
+                  "toppings_list": "",
+                  "toppings_qty": "",
+                  "topping_types_count": 0,
+                  "category_key": "mosa_signature",
+                  "item_key": "tgy_special",
+              },
+          ]
+
+          fieldnames = [
+              "Date",
+              "Category",
+              "Item",
+              "ice_pct",
+              "sugar_pct",
+              "tea_base_final",
+              "tea_resolution",
+              "toppings_list",
+              "toppings_qty",
+              "topping_types_count",
+              "category_key",
+              "item_key",
+          ]
+          with fixture_path.open("w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Wrote fixture: {fixture_path}")
+          PY
+
+      - name: Build synthetic manual samples
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          out_dir = Path("tmp/ci_manual_samples")
+          out_dir.mkdir(parents=True, exist_ok=True)
+
+          samples = {
+              25: [480, 482, 478],
+              50: [460, 458, 462],
+              75: [430, 432, 428],
+              100: [400, 398, 402],
+          }
+
+          for ice_pct, values in samples.items():
+              path = out_dir / f"manual_samples_{ice_pct}pct.csv"
+              with path.open("w", newline="", encoding="utf-8") as f:
+                  writer = csv.DictWriter(
+                      f, fieldnames=["sample_id", "ice_pct", "tea_base_ml"]
+                  )
+                  writer.writeheader()
+                  for idx, v in enumerate(values, start=1):
+                      writer.writerow(
+                          {
+                              "sample_id": idx,
+                              "ice_pct": ice_pct,
+                              "tea_base_ml": v,
+                          }
+                      )
+              print(f"Wrote {path}")
+          PY
+
+      - name: Run usage estimation on fixture
+        run: |
+          python src/estimate_usage.py \
+            --input tmp/ci_canonicalized_line_items.csv \
+            --output tmp/ci_usage_line_items.csv \
+            --component-output tmp/ci_usage_components.csv \
+            --summary-output tmp/ci_usage_summary.csv \
+            --weekday-output tmp/ci_usage_weekday_summary.csv \
+            --monthly-weekday-output tmp/ci_usage_monthly_weekday_summary.csv \
+            --validation-output tmp/ci_usage_validation.csv \
+            --manual-samples-dir tmp/ci_manual_samples
+
+      - name: Validate usage outputs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          validation_path = Path("tmp/ci_usage_validation.csv")
+          if not validation_path.exists():
+              raise SystemExit("usage_validation.csv was not created.")
+
+          df = pd.read_csv(validation_path)
+          metrics = dict(zip(df["metric"], df["value"]))
+
+          if metrics.get("line_items") != 3:
+              raise SystemExit(f"Expected 3 line items, got {metrics.get('line_items')}")
+          if metrics.get("missing_base_tea_ml") != 0:
+              raise SystemExit("Missing base_tea_ml in usage fixture.")
+          if metrics.get("missing_tea_base_ml_est") != 0:
+              raise SystemExit("Missing tea_base_ml_est in usage fixture.")
+          if metrics.get("forced_ice_100") != 1:
+              raise SystemExit("Expected exactly 1 forced 100% ice item.")
+          if metrics.get("milk_drinks") < 1:
+              raise SystemExit("Expected at least one milk drink in usage fixture.")
+
+          print("Usage validation passed.")
           PY
