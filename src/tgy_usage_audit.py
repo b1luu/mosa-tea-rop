@@ -132,9 +132,10 @@ def main() -> None:
     coverage["days_in_month"] = coverage["month"].dt.days_in_month
     coverage["full_month"] = coverage["days_covered"] == coverage["days_in_month"]
 
+    tgy_monthly = tgy_components.copy()
+    tgy_monthly["month"] = pd.to_datetime(tgy_monthly["Date"], errors="coerce").dt.to_period("M")
     tgy_monthly = (
-        tgy_components.assign(month=lambda d: pd.to_datetime(d["Date"]).to_period("M"))
-        .groupby("month", as_index=False)["tea_component_ml_est"]
+        tgy_monthly.groupby("month", as_index=False)["tea_component_ml_est"]
         .sum()
         .rename(columns={"tea_component_ml_est": "tgy_ml_total"})
     )
