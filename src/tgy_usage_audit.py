@@ -35,6 +35,17 @@ def parse_args() -> argparse.Namespace:
         default="data/analysis/tgy_item_breakdown.csv",
         help="Output CSV path for item breakdown.",
     )
+    parser.add_argument(
+        "--monthly-output",
+        default="data/analysis/tgy_monthly_bag_usage.csv",
+        help="Output CSV path for monthly bag usage (full months only).",
+    )
+    parser.add_argument(
+        "--bag-grams",
+        type=float,
+        default=600,
+        help="Leaf grams per vendor bag (default: 600).",
+    )
     return parser.parse_args()
 
 
@@ -46,8 +57,10 @@ def main() -> None:
 
     output_path = Path(args.output)
     item_output_path = Path(args.item_output)
+    monthly_output_path = Path(args.monthly_output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     item_output_path.parent.mkdir(parents=True, exist_ok=True)
+    monthly_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     components = pd.read_csv(components_path)
     components["Date"] = pd.to_datetime(components["Date"], errors="coerce").dt.date
@@ -77,6 +90,8 @@ def main() -> None:
     if tgy_batch.empty:
         raise ValueError("tie_guan_yin batch yield not found in batch_yield_estimates.csv")
     tgy_yield_ml = float(tgy_batch.iloc[0]["yield_ml"])
+    leaf_grams_per_batch = float(tgy_batch.iloc[0].get("leaf_grams", 0))
+    bag_grams = float(tgy_batch.iloc[0].get("bag_grams", args.bag_grams))
 
     daily["batch_yield_ml"] = tgy_yield_ml
     daily["batches_needed"] = daily["tgy_ml_total"] / tgy_yield_ml
@@ -106,9 +121,59 @@ def main() -> None:
     )
     item_breakdown = item_breakdown.merge(item_ml, on="Item", how="left")
 
+    # Monthly bag usage (full months only).
+    all_dates = line_items["Date"].dropna().unique()
+    date_df = pd.DataFrame({"Date": pd.to_datetime(all_dates)})
+    date_df["month"] = date_df["Date"].dt.to_period("M")
+    coverage = (
+        date_df.groupby("month", as_index=False)
+        .agg(days_covered=("Date", "nunique"))
+    )
+    coverage["days_in_month"] = coverage["month"].dt.days_in_month
+    coverage["full_month"] = coverage["days_covered"] == coverage["days_in_month"]
+
+    tgy_monthly = (
+        tgy_components.assign(month=lambda d: pd.to_datetime(d["Date"]).to_period("M"))
+        .groupby("month", as_index=False)["tea_component_ml_est"]
+        .sum()
+        .rename(columns={"tea_component_ml_est": "tgy_ml_total"})
+    )
+
+    monthly = coverage.merge(tgy_monthly, on="month", how="left").fillna(
+        {"tgy_ml_total": 0}
+    )
+    monthly = monthly[monthly["full_month"]].copy()
+    monthly["batch_yield_ml"] = tgy_yield_ml
+    monthly["leaf_grams_per_batch"] = leaf_grams_per_batch
+    monthly["bag_grams"] = bag_grams
+    monthly["batches_needed"] = monthly["tgy_ml_total"] / tgy_yield_ml
+    monthly["leaf_grams_used"] = monthly["batches_needed"] * leaf_grams_per_batch
+    monthly["bags_used"] = (
+        monthly["leaf_grams_used"] / bag_grams if bag_grams else 0
+    )
+
+    monthly = monthly[
+        [
+            "month",
+            "days_covered",
+            "days_in_month",
+            "tgy_ml_total",
+            "batch_yield_ml",
+            "leaf_grams_per_batch",
+            "bag_grams",
+            "batches_needed",
+            "leaf_grams_used",
+            "bags_used",
+        ]
+    ].copy()
+    monthly["month"] = monthly["month"].astype(str)
+    numeric_cols = monthly.select_dtypes(include="number").columns
+    monthly[numeric_cols] = monthly[numeric_cols].round(2)
+
     # Output daily audit and item breakdown.
     daily.to_csv(output_path, index=False)
     item_breakdown.to_csv(item_output_path, index=False)
+    monthly.to_csv(monthly_output_path, index=False)
 
     # Write resolution mix as a footer-like appendix file.
     resolution_path = output_path.with_name("tgy_resolution_mix.csv")
@@ -116,6 +181,7 @@ def main() -> None:
 
     print(f"Wrote {output_path}")
     print(f"Wrote {item_output_path}")
+    print(f"Wrote {monthly_output_path}")
     print(f"Wrote {resolution_path}")
 
 
