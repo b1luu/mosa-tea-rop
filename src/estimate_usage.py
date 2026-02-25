@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         help="Item default component CSV path.",
     )
     parser.add_argument(
+        "--recipe-simple",
+        default="data/reference/recipe_simple.csv",
+        help="Simple recipe CSV for per-item overrides.",
+    )
+    parser.add_argument(
         "--output",
         default="data/analysis/usage_line_items.csv",
         help="Output CSV path for line-item usage.",
@@ -118,6 +123,20 @@ def load_manual_means(samples_dir: Path) -> dict:
     return means
 
 
+def load_recipe_overrides(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(columns=["item_name", "tea_base_ml", "milk_ml"])
+    df = pd.read_csv(path)
+    df["item_name"] = df["item_name"].astype(str).str.strip()
+    df["tea_base_ml"] = pd.to_numeric(df.get("tea_base_ml"), errors="coerce")
+    df["milk_ml"] = pd.to_numeric(df.get("milk_ml"), errors="coerce")
+    df = df[df["item_name"].ne("")].copy()
+    df["name_len"] = df["item_name"].str.len()
+    return df.sort_values("name_len", ascending=False)[
+        ["item_name", "tea_base_ml", "milk_ml"]
+    ]
+
+
 def build_default_component_lists(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     for col in ["category_key", "item_key", "component_key"]:
@@ -185,6 +204,7 @@ def main() -> None:
     input_path = Path(args.input)
     samples_dir = Path(args.manual_samples_dir)
     default_components_path = Path(args.default_components)
+    recipe_simple_path = Path(args.recipe_simple)
 
     output_path = Path(args.output)
     component_output_path = Path(args.component_output)
@@ -201,6 +221,8 @@ def main() -> None:
     manual_means = load_manual_means(samples_dir)
     ice_keys = sorted(manual_means.keys())
     print("Manual means (ml):", manual_means)
+
+    recipe_overrides = load_recipe_overrides(recipe_simple_path)
 
     df = pd.read_csv(input_path, low_memory=False)
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
