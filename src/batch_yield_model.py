@@ -13,7 +13,7 @@ ABSORB_ML_PER_G_NO_SQUEEZE: Dict[str, float] = {
     "matured_black": 2.7,
     "buckwheat": 2.4,
     "barley": 2.8,
-    "toasted_rice": 2.8,
+    "genmai": 2.8,
 }
 
 DEFAULT_LEAF_GRAMS: Dict[str, float] = {
@@ -23,7 +23,7 @@ DEFAULT_LEAF_GRAMS: Dict[str, float] = {
     "matured_black": 140,
     "buckwheat": 120,
     "barley": 240,
-    "toasted_rice": 120,
+    "genmai": 120,
 }
 
 
@@ -31,8 +31,8 @@ def estimate_batch_yield_ml(
     tea_key: str,
     leaf_grams: float | None = None,
     *,
-    hot_water_ml: float = 4200,
-    ice_grams: float = 2800,
+    hot_water_ml: float = 6000,
+    ice_grams: float = 0,
     process_loss_ml: float = 0,
 ) -> Tuple[float, float, float]:
     """Estimate batch yield in mL for a tea key.
@@ -79,14 +79,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hot-water-ml",
         type=float,
-        default=4200,
-        help="Hot water volume in mL (default: 4200).",
+        default=6000,
+        help="Hot water volume in mL (default: 6000).",
     )
     parser.add_argument(
         "--ice-grams",
         type=float,
-        default=2800,
-        help="Ice in grams (assume 1 g = 1 mL water; default: 2800).",
+        default=0,
+        help="Ice in grams (assume 1 g = 1 mL water; default: 0).",
     )
     parser.add_argument(
         "--process-loss-ml",
