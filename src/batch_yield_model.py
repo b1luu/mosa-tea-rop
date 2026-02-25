@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import argparse
+from pathlib import Path
 from typing import Dict, Tuple
 
 ABSORB_ML_PER_G_NO_SQUEEZE: Dict[str, float] = {
@@ -60,3 +62,104 @@ def estimate_batch_yield_ml(
     yield_ml = hot_water_ml + ice_grams - absorbed_ml - process_loss_ml
     return yield_ml, absorbed_ml, absorb_ml_per_g
 
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Estimate tea batch yield.")
+    parser.add_argument(
+        "--tea-key",
+        default="",
+        help="Tea key to estimate (default: all keys).",
+    )
+    parser.add_argument(
+        "--leaf-grams",
+        type=float,
+        default=None,
+        help="Override leaf grams (only used with --tea-key).",
+    )
+    parser.add_argument(
+        "--hot-water-ml",
+        type=float,
+        default=4200,
+        help="Hot water volume in mL (default: 4200).",
+    )
+    parser.add_argument(
+        "--ice-grams",
+        type=float,
+        default=2800,
+        help="Ice in grams (assume 1 g = 1 mL water; default: 2800).",
+    )
+    parser.add_argument(
+        "--process-loss-ml",
+        type=float,
+        default=0,
+        help="Process loss in mL (default: 0).",
+    )
+    parser.add_argument(
+        "--output",
+        default="data/analysis/batch_yield_estimates.csv",
+        help="Output CSV path.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.tea_key:
+        tea_keys = [args.tea_key]
+    else:
+        tea_keys = sorted(ABSORB_ML_PER_G_NO_SQUEEZE.keys())
+
+    rows = []
+    for tea_key in tea_keys:
+        leaf_grams = args.leaf_grams
+        if leaf_grams is None:
+            leaf_grams = DEFAULT_LEAF_GRAMS.get(tea_key)
+        if leaf_grams is None:
+            raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
+        yield_ml, absorbed_ml, absorb_ml_per_g = estimate_batch_yield_ml(
+            tea_key=tea_key,
+            leaf_grams=leaf_grams,
+            hot_water_ml=args.hot_water_ml,
+            ice_grams=args.ice_grams,
+            process_loss_ml=args.process_loss_ml,
+        )
+        rows.append(
+            {
+                "tea_key": tea_key,
+                "leaf_grams": leaf_grams,
+                "hot_water_ml": args.hot_water_ml,
+                "ice_grams": args.ice_grams,
+                "process_loss_ml": args.process_loss_ml,
+                "absorb_ml_per_g": absorb_ml_per_g,
+                "absorbed_ml": absorbed_ml,
+                "yield_ml": yield_ml,
+            }
+        )
+
+    import csv
+
+    with output_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "tea_key",
+                "leaf_grams",
+                "hot_water_ml",
+                "ice_grams",
+                "process_loss_ml",
+                "absorb_ml_per_g",
+                "absorbed_ml",
+                "yield_ml",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"Wrote {output_path}")
+
+
+if __name__ == "__main__":
+    main()
