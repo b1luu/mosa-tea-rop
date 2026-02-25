@@ -1,0 +1,4 @@
+Date,Category,Item,ice_pct,sugar_pct,tea_base_final,tea_resolution,toppings_list,toppings_qty,topping_types_count,category_key,item_key
+2026-01-10,Matcha Series,Matcha Latte,25,50,matcha,default,,,0,matcha_series,matcha_latte
+2026-01-10,Au Lait(Fresh Milk),Genmai Green Au Lait,50,0,genmai:0.5|green:0.5,blend,boba,boba:1,1,au_lait_fresh_milk,genmai_green_au_lait
+2026-01-10,Mosa Signature,TGY Special,0,75,tie_guan_yin,default,,,0,mosa_signature,tgy_special

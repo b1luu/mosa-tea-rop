@@ -1,0 +1,11 @@
+metric,value
+line_items,3
+unique_line_item_ids,3
+components_rows,4
+missing_base_tea_ml,0
+missing_tea_base_ml_est,0
+recipe_overrides,2
+milk_drinks,2
+forced_ice_100,1
+forced_no_ice,0
+topping_reduction_applied,1

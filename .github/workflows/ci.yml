@@ -306,6 +306,40 @@ jobs:
           print(f"Wrote fixture: {fixture_path}")
           PY
 
+      - name: Build synthetic manual samples
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          out_dir = Path("tmp/ci_manual_samples")
+          out_dir.mkdir(parents=True, exist_ok=True)
+
+          samples = {
+              25: [480, 482, 478],
+              50: [460, 458, 462],
+              75: [430, 432, 428],
+              100: [400, 398, 402],
+          }
+
+          for ice_pct, values in samples.items():
+              path = out_dir / f"manual_samples_{ice_pct}pct.csv"
+              with path.open("w", newline="", encoding="utf-8") as f:
+                  writer = csv.DictWriter(
+                      f, fieldnames=["sample_id", "ice_pct", "tea_base_ml"]
+                  )
+                  writer.writeheader()
+                  for idx, v in enumerate(values, start=1):
+                      writer.writerow(
+                          {
+                              "sample_id": idx,
+                              "ice_pct": ice_pct,
+                              "tea_base_ml": v,
+                          }
+                      )
+              print(f"Wrote {path}")
+          PY
+
       - name: Run usage estimation on fixture
         run: |
           python src/estimate_usage.py \
@@ -315,7 +349,8 @@ jobs:
             --summary-output tmp/ci_usage_summary.csv \
             --weekday-output tmp/ci_usage_weekday_summary.csv \
             --monthly-weekday-output tmp/ci_usage_monthly_weekday_summary.csv \
-            --validation-output tmp/ci_usage_validation.csv
+            --validation-output tmp/ci_usage_validation.csv \
+            --manual-samples-dir tmp/ci_manual_samples
 
       - name: Validate usage outputs
         run: |

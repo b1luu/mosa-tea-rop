@@ -1,0 +1,4 @@
+Date,Category,Item,ice_pct,sugar_pct,tea_base_final,tea_resolution,toppings_list,toppings_qty,topping_types_count,default_components_list,default_components_qty,recipe_item_match,recipe_ice,milk_ml_est,base_total_ml,ice_pct_bucket,ice_pct_imputed,base_tea_ml,topping_reduction_pct,tea_base_ml_est,line_group_id,line_item_index,line_item_id
+2026-01-10,Matcha Series,Matcha Latte,25,50,matcha,default,,,0,,,Matcha Latte,100% ice,169.67142857142855,395.9,100,True,226.2285714285714,0.0,226,0,1,0-1
+2026-01-10,Au Lait(Fresh Milk),Genmai Green Au Lait,50,0,genmai:0.5|green:0.5,blend,boba,boba:1,1,,,Au Lait,ice (per ice level),196.7142857142857,459.0,50,False,262.2857142857143,0.1,236,1,1,1-1
+2026-01-10,Mosa Signature,TGY Special,0,75,tie_guan_yin,default,,,0,brown_sugar_hun_kue,brown_sugar_hun_kue:1,,,0.0,550.0,0,False,550.0,0.0,550,2,1,2-1

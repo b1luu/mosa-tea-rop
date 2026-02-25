@@ -1,0 +1,5 @@
+Date,Transaction ID,Item,ice_pct,sugar_pct,tea_component,tea_component_share,tea_component_ml_est,line_item_id
+2026-01-10,,Matcha Latte,25,50,matcha,1.0,226.0,0-1
+2026-01-10,,Genmai Green Au Lait,50,0,genmai,0.5,118.0,1-1
+2026-01-10,,Genmai Green Au Lait,50,0,green,0.5,118.0,1-1
+2026-01-10,,TGY Special,0,75,tie_guan_yin,1.0,550.0,2-1
