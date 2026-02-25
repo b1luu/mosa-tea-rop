@@ -358,11 +358,18 @@ def main() -> None:
     filtered = filtered.dropna(subset=["Date"])
     filtered["month"] = filtered["Date"].dt.to_period("M").astype(str)
     filtered["weekday"] = filtered["Date"].dt.day_name()
-    monthly_weekday = (
-        filtered.groupby(["month", "weekday", "tea_component"], as_index=False)
+    daily_component = (
+        filtered.groupby(["Date", "month", "weekday", "tea_component"], as_index=False)
         .agg(
-            avg_tea_ml=("tea_component_ml_est", "mean"),
+            tea_ml_total=("tea_component_ml_est", "sum"),
             drink_count=("line_item_id", "nunique"),
+        )
+    )
+    monthly_weekday = (
+        daily_component.groupby(["month", "weekday", "tea_component"], as_index=False)
+        .agg(
+            avg_tea_ml_total=("tea_ml_total", "mean"),
+            avg_drink_count=("drink_count", "mean"),
             days_count=("Date", "nunique"),
         )
     )
