@@ -70,12 +70,26 @@ Example row (JavaScript-labeled for readability):
 - Milk drinks split total volume by tea/milk ratio from `recipe_simple.csv`.
 - Forced ice values (`100% ice`, `no ice`) override the ice bucket.
 
-Example (JavaScript-labeled):
+Example (for reference):
 
-```javascript
-// tea_base_ml_est = base_tea_ml * (1 - topping_reduction_pct)
-// milk_ml_est = base_total_ml * milk_ratio (for milk drinks)
 ```
+tea_base_ml_est = base_tea_ml * (1 - topping_reduction_pct)
+milk_ml_est = base_total_ml * milk_ratio (for milk drinks)
+```
+
+## Example Output (Tie Guan Yin)
+
+Sample from `usage_weekday_summary.csv` (tie_guan_yin only). Replace with your own run data:
+
+| weekday   | tea_component | avg_tea_ml_total | avg_drink_count | days_count |
+|-----------|---------------|------------------|-----------------|------------|
+| Monday    | tie_guan_yin   | 16490.96         | 43.42           | 24         |
+| Tuesday   | tie_guan_yin   | 16524.35         | 43.26           | 23         |
+| Wednesday | tie_guan_yin   | 17345.30         | 45.22           | 23         |
+| Thursday  | tie_guan_yin   | 18055.63         | 47.21           | 24         |
+| Friday    | tie_guan_yin   | 25732.58         | 67.58           | 24         |
+| Saturday  | tie_guan_yin   | 31882.13         | 83.79           | 24         |
+| Sunday    | tie_guan_yin   | 29285.29         | 77.42           | 24         |
 
 ## Design Notes
 
