@@ -507,6 +507,39 @@ def main() -> None:
     monthly_weekday.to_csv(monthly_weekday_output_path, index=False)
     print(f"wrote {monthly_weekday_output_path}")
 
+    validation = [
+        {"metric": "line_items", "value": int(len(df))},
+        {
+            "metric": "unique_line_item_ids",
+            "value": int(df["line_item_id"].nunique()),
+        },
+        {"metric": "components_rows", "value": int(len(components_df))},
+        {"metric": "missing_base_tea_ml", "value": int(df["base_tea_ml"].isna().sum())},
+        {
+            "metric": "missing_tea_base_ml_est",
+            "value": int(df["tea_base_ml_est"].isna().sum()),
+        },
+        {
+            "metric": "recipe_overrides",
+            "value": int(df["recipe_item_match"].astype(str).str.strip().ne("").sum()),
+        },
+        {"metric": "milk_drinks", "value": int((df["milk_ml_est"] > 0).sum())},
+        {
+            "metric": "forced_ice_100",
+            "value": int(df["recipe_ice"].str.contains("100%", case=False, na=False).sum()),
+        },
+        {
+            "metric": "forced_no_ice",
+            "value": int(df["recipe_ice"].str.contains("no ice", case=False, na=False).sum()),
+        },
+        {
+            "metric": "topping_reduction_applied",
+            "value": int((df["topping_reduction_pct"] > 0).sum()),
+        },
+    ]
+    pd.DataFrame(validation).to_csv(validation_output_path, index=False)
+    print(f"wrote {validation_output_path}")
+
 
 if __name__ == "__main__":
     main()
