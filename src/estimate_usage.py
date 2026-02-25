@@ -76,6 +76,11 @@ def parse_args() -> argparse.Namespace:
         help="Output CSV path for month + weekday averages.",
     )
     parser.add_argument(
+        "--validation-output",
+        default="data/analysis/usage_validation.csv",
+        help="Output CSV path for validation summary.",
+    )
+    parser.add_argument(
         "--tea-component-filter",
         default="",
         help="Optional tea component filter for monthly weekday averages.",
@@ -212,12 +217,14 @@ def main() -> None:
     summary_output_path = Path(args.summary_output)
     weekday_output_path = Path(args.weekday_output)
     monthly_weekday_output_path = Path(args.monthly_weekday_output)
+    validation_output_path = Path(args.validation_output)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     component_output_path.parent.mkdir(parents=True, exist_ok=True)
     summary_output_path.parent.mkdir(parents=True, exist_ok=True)
     weekday_output_path.parent.mkdir(parents=True, exist_ok=True)
     monthly_weekday_output_path.parent.mkdir(parents=True, exist_ok=True)
+    validation_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     manual_means = load_manual_means(samples_dir)
     ice_keys = sorted(manual_means.keys())
@@ -262,8 +269,8 @@ def main() -> None:
 
     # Apply recipe overrides based on item-name substring matches.
     df["recipe_item_match"] = ""
-    df["recipe_tea_base_ml"] = pd.NA
-    df["recipe_milk_ml"] = pd.NA
+    df["recipe_tea_base_ml"] = np.nan
+    df["recipe_milk_ml"] = np.nan
     df["recipe_ice"] = ""
     if not recipe_overrides.empty:
         overrides = list(recipe_overrides.itertuples(index=False))
@@ -284,6 +291,13 @@ def main() -> None:
                 df.at[idx, "recipe_milk_ml"] = matched.milk_ml
             if matched.ice:
                 df.at[idx, "recipe_ice"] = matched.ice
+
+    df["recipe_tea_base_ml"] = pd.to_numeric(
+        df["recipe_tea_base_ml"], errors="coerce"
+    )
+    df["recipe_milk_ml"] = pd.to_numeric(
+        df["recipe_milk_ml"], errors="coerce"
+    )
 
     # Force ice bucket when recipe explicitly specifies a fixed ice level.
     force_ice_100 = df["recipe_ice"].str.contains("100%", case=False, na=False)
