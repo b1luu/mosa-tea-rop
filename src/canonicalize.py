@@ -95,7 +95,14 @@ def run_canonicalization(
     token_map = pd.read_csv(token_map_path)
     item_rules = pd.read_csv(item_rules_path)
     blend_rules = pd.read_csv(blend_rules_path)
-    default_comp = pd.read_csv(default_components_path)
+    default_components_path = Path(default_components_path)
+    if default_components_path.exists():
+        default_comp = pd.read_csv(default_components_path)
+    else:
+        # Allow canonicalization to run without default component mappings.
+        default_comp = pd.DataFrame(
+            columns=["category_key", "item_key", "component_key", "qty"]
+        )
 
     # Stable row key lets us explode/aggregate and merge back without ambiguity.
     clean["row_id"] = range(len(clean))
