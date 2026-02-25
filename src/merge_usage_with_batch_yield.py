@@ -21,7 +21,6 @@ TEA_COMPONENT_TO_BATCH_KEY = {
 }
 
 DEFAULT_BATCH_YIELD_ML = 800
-DEFAULT_BATCHES_ON_HAND = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,8 +64,6 @@ def main() -> None:
         how="left",
     )
     merged["batch_yield_ml"] = merged["batch_yield_ml"].fillna(DEFAULT_BATCH_YIELD_ML)
-    merged["batches_on_hand"] = DEFAULT_BATCHES_ON_HAND
-    merged["available_ml"] = merged["batch_yield_ml"] * merged["batches_on_hand"]
     merged["avg_batches_needed"] = merged["avg_tea_ml_total"] / merged["batch_yield_ml"]
 
     merged.to_csv(output_path, index=False)
