@@ -1,5 +1,10 @@
 # Mosa Tea Reorder Point Pipeline
 
+[![CI](https://github.com/b1luu/mosa-tea-rop/actions/workflows/ci.yml/badge.svg)](https://github.com/b1luu/mosa-tea-rop/actions/workflows/ci.yml)
+[![CD](https://github.com/b1luu/mosa-tea-rop/actions/workflows/cd.yml/badge.svg)](https://github.com/b1luu/mosa-tea-rop/actions/workflows/cd.yml)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Pandas](https://img.shields.io/badge/pandas-required-150458)
+
 Privacy-safe pipeline for Mosa Tea reorder-point analysis: clean Square exports, canonicalize items/modifiers, resolve tea-base/topping usage, and produce analysis + debug CSVs with validation reports and CI tests for reliable inventory planning.
 
 ## Pipeline
