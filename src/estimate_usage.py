@@ -125,15 +125,16 @@ def load_manual_means(samples_dir: Path) -> dict:
 
 def load_recipe_overrides(path: Path) -> pd.DataFrame:
     if not path.exists():
-        return pd.DataFrame(columns=["item_name", "tea_base_ml", "milk_ml"])
+        return pd.DataFrame(columns=["item_name", "tea_base_ml", "milk_ml", "ice"])
     df = pd.read_csv(path)
     df["item_name"] = df["item_name"].astype(str).str.strip()
     df["tea_base_ml"] = pd.to_numeric(df.get("tea_base_ml"), errors="coerce")
     df["milk_ml"] = pd.to_numeric(df.get("milk_ml"), errors="coerce")
+    df["ice"] = df.get("ice", "").astype(str).str.strip().str.lower()
     df = df[df["item_name"].ne("")].copy()
     df["name_len"] = df["item_name"].str.len()
     return df.sort_values("name_len", ascending=False)[
-        ["item_name", "tea_base_ml", "milk_ml"]
+        ["item_name", "tea_base_ml", "milk_ml", "ice"]
     ]
 
 
@@ -263,6 +264,7 @@ def main() -> None:
     df["recipe_item_match"] = ""
     df["recipe_tea_base_ml"] = pd.NA
     df["recipe_milk_ml"] = pd.NA
+    df["recipe_ice"] = ""
     if not recipe_overrides.empty:
         overrides = list(recipe_overrides.itertuples(index=False))
         for idx, item in df["Item"].astype(str).items():
@@ -280,9 +282,44 @@ def main() -> None:
                 df.at[idx, "recipe_tea_base_ml"] = matched.tea_base_ml
             if pd.notna(matched.milk_ml):
                 df.at[idx, "recipe_milk_ml"] = matched.milk_ml
+            if matched.ice:
+                df.at[idx, "recipe_ice"] = matched.ice
 
-    df["base_tea_ml"] = df["recipe_tea_base_ml"].combine_first(df["base_tea_ml"])
-    df["milk_ml_est"] = df["recipe_milk_ml"].fillna(0.0)
+    df["base_total_ml"] = df["base_tea_ml"]
+    df["milk_ml_est"] = 0.0
+
+    has_milk = df["recipe_milk_ml"].notna() & df["recipe_milk_ml"].gt(0)
+    tea_specified = df["recipe_tea_base_ml"].notna() & df["recipe_tea_base_ml"].gt(0)
+    dynamic_ice = df["recipe_ice"].str.contains("no ice", case=False, na=False).eq(False)
+    ratio_mask = has_milk & tea_specified & dynamic_ice
+
+    if ratio_mask.any():
+        ratio_total = df.loc[ratio_mask, "recipe_tea_base_ml"] + df.loc[
+            ratio_mask, "recipe_milk_ml"
+        ]
+        tea_ratio = df.loc[ratio_mask, "recipe_tea_base_ml"] / ratio_total
+        milk_ratio = df.loc[ratio_mask, "recipe_milk_ml"] / ratio_total
+        df.loc[ratio_mask, "base_total_ml"] = df.loc[ratio_mask, "base_tea_ml"]
+        df.loc[ratio_mask, "base_tea_ml"] = (
+            df.loc[ratio_mask, "base_total_ml"] * tea_ratio
+        )
+        df.loc[ratio_mask, "milk_ml_est"] = (
+            df.loc[ratio_mask, "base_total_ml"] * milk_ratio
+        )
+
+    fixed_mask = has_milk & tea_specified & ~ratio_mask
+    if fixed_mask.any():
+        df.loc[fixed_mask, "base_tea_ml"] = df.loc[fixed_mask, "recipe_tea_base_ml"]
+        df.loc[fixed_mask, "milk_ml_est"] = df.loc[fixed_mask, "recipe_milk_ml"]
+        df.loc[fixed_mask, "base_total_ml"] = (
+            df.loc[fixed_mask, "recipe_tea_base_ml"]
+            + df.loc[fixed_mask, "recipe_milk_ml"]
+        )
+
+    tea_only_mask = df["recipe_tea_base_ml"].notna() & ~has_milk
+    if tea_only_mask.any():
+        df.loc[tea_only_mask, "base_tea_ml"] = df.loc[tea_only_mask, "recipe_tea_base_ml"]
+        df.loc[tea_only_mask, "base_total_ml"] = df.loc[tea_only_mask, "base_tea_ml"]
 
     df["topping_types_count"] = pd.to_numeric(
         df["topping_types_count"], errors="coerce"
@@ -314,7 +351,9 @@ def main() -> None:
         "default_components_list",
         "default_components_qty",
         "recipe_item_match",
+        "recipe_ice",
         "milk_ml_est",
+        "base_total_ml",
         "ice_pct_bucket",
         "ice_pct_imputed",
         "base_tea_ml",
