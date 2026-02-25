@@ -259,6 +259,31 @@ def main() -> None:
     zero_mask = df["ice_pct_bucket"].eq(0)
     df.loc[zero_mask, "base_tea_ml"] = ZERO_ICE_BASE_ML
 
+    # Apply recipe overrides based on item-name substring matches.
+    df["recipe_item_match"] = ""
+    df["recipe_tea_base_ml"] = pd.NA
+    df["recipe_milk_ml"] = pd.NA
+    if not recipe_overrides.empty:
+        overrides = list(recipe_overrides.itertuples(index=False))
+        for idx, item in df["Item"].astype(str).items():
+            item_lower = item.lower()
+            matched = None
+            for row in overrides:
+                name = str(row.item_name).lower()
+                if name and name in item_lower:
+                    matched = row
+                    break
+            if matched is None:
+                continue
+            df.at[idx, "recipe_item_match"] = matched.item_name
+            if pd.notna(matched.tea_base_ml):
+                df.at[idx, "recipe_tea_base_ml"] = matched.tea_base_ml
+            if pd.notna(matched.milk_ml):
+                df.at[idx, "recipe_milk_ml"] = matched.milk_ml
+
+    df["base_tea_ml"] = df["recipe_tea_base_ml"].combine_first(df["base_tea_ml"])
+    df["milk_ml_est"] = df["recipe_milk_ml"].fillna(0.0)
+
     df["topping_types_count"] = pd.to_numeric(
         df["topping_types_count"], errors="coerce"
     ).fillna(0)
@@ -288,6 +313,8 @@ def main() -> None:
         "topping_types_count",
         "default_components_list",
         "default_components_qty",
+        "recipe_item_match",
+        "milk_ml_est",
         "ice_pct_bucket",
         "ice_pct_imputed",
         "base_tea_ml",
