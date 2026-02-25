@@ -131,6 +131,12 @@ def parse_args() -> argparse.Namespace:
         default="data/analysis/batch_yield_estimates.csv",
         help="Output CSV path.",
     )
+    parser.add_argument(
+        "--bag-grams",
+        type=float,
+        default=600,
+        help="Leaf grams per vendor bag (default: 600).",
+    )
     return parser.parse_args()
 
 
@@ -163,6 +169,8 @@ def main() -> None:
             ice_grams=resolved_ice_grams,
             process_loss_ml=args.process_loss_ml,
         )
+        bag_grams = args.bag_grams
+        bags_used = leaf_grams / bag_grams if bag_grams else None
         rows.append(
             {
                 "tea_key": tea_key,
@@ -173,6 +181,8 @@ def main() -> None:
                 "absorb_ml_per_g": absorb_ml_per_g,
                 "absorbed_ml": absorbed_ml,
                 "yield_ml": yield_ml,
+                "bag_grams": bag_grams,
+                "bags_used": bags_used,
             }
         )
 
@@ -190,6 +200,8 @@ def main() -> None:
                 "absorb_ml_per_g",
                 "absorbed_ml",
                 "yield_ml",
+                "bag_grams",
+                "bags_used",
             ],
         )
         writer.writeheader()
