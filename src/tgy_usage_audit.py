@@ -99,11 +99,7 @@ def main() -> None:
 
     # Join per-item total ml from components.
     item_ml = (
-        tgy_components.merge(
-            tgy_lines[["line_item_id", "Item"]], on="line_item_id", how="left"
-        )
-        .dropna(subset=["Item"])
-        .groupby("Item", as_index=False)["tea_component_ml_est"]
+        tgy_components.groupby("Item", as_index=False)["tea_component_ml_est"]
         .sum()
         .rename(columns={"tea_component_ml_est": "tgy_ml_total"})
         .sort_values("tgy_ml_total", ascending=False)
