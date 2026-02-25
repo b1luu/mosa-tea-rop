@@ -149,6 +149,15 @@ def load_recipe_overrides(path: Path) -> pd.DataFrame:
 
 
 def build_default_component_lists(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(
+            columns=[
+                "category_key",
+                "item_key",
+                "default_components_list",
+                "default_components_qty",
+            ]
+        )
     df = pd.read_csv(path)
     for col in ["category_key", "item_key", "component_key"]:
         df[col] = df[col].astype(str).str.strip()
