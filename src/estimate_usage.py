@@ -283,10 +283,17 @@ def main() -> None:
             item_lower = item.lower()
             matched = None
             for row in overrides:
-                name = str(row.item_name).lower()
-                if name and name in item_lower:
-                    matched = row
-                    break
+                tokens = str(row.match_tokens or "").lower().strip()
+                if tokens:
+                    required = [t.strip() for t in tokens.split("|") if t.strip()]
+                    if required and not all(t in item_lower for t in required):
+                        continue
+                else:
+                    name = str(row.item_name).lower()
+                    if not name or name not in item_lower:
+                        continue
+                matched = row
+                break
             if matched is None:
                 continue
             df.at[idx, "recipe_item_match"] = matched.item_name
@@ -296,16 +303,6 @@ def main() -> None:
                 df.at[idx, "recipe_milk_ml"] = matched.milk_ml
             if matched.ice:
                 df.at[idx, "recipe_ice"] = matched.ice
-
-    # Hot Au Lait override: force no-ice and fixed tea/milk ratio.
-    hot_au_lait = df["Item"].astype(str).str.contains("hot", case=False, na=False) & df[
-        "Item"
-    ].astype(str).str.contains("au lait", case=False, na=False)
-    if hot_au_lait.any():
-        df.loc[hot_au_lait, "recipe_item_match"] = "Hot Au Lait"
-        df.loc[hot_au_lait, "recipe_tea_base_ml"] = 200.0
-        df.loc[hot_au_lait, "recipe_milk_ml"] = 150.0
-        df.loc[hot_au_lait, "recipe_ice"] = "no ice"
 
     df["recipe_tea_base_ml"] = pd.to_numeric(
         df["recipe_tea_base_ml"], errors="coerce"
