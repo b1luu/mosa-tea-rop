@@ -91,6 +91,19 @@ Sample from `usage_weekday_summary.csv` (tie_guan_yin only). Replace with your o
 | Saturday  | tie_guan_yin   | 31882.13         | 83.79           | 24         |
 | Sunday    | tie_guan_yin   | 29285.29         | 77.42           | 24         |
 
+## Example Output (TGY Monthly Bag Usage)
+
+Sample from `tgy_monthly_bag_usage.csv` (full months only). Replace with your own run data:
+
+```
+month  days_covered  days_in_month  tgy_ml_total  batch_yield_ml  leaf_grams_per_batch  bag_grams  batches_needed  leaf_grams_used  bags_used
+2025-09            30             30      716141.0          6504.0                 160.0      600.0          110.11         17617.24      29.36
+2025-10            31             31      706924.0          6504.0                 160.0      600.0          108.69         17390.50      28.98
+2025-11            30             30      609384.0          6504.0                 160.0      600.0           93.69         14991.00      24.98
+2025-12            31             31      645441.0          6504.0                 160.0      600.0           99.24         15878.01      26.46
+2026-01            31             31      673929.0          6504.0                 160.0      600.0          103.62         16578.82      27.63
+```
+
 ## Design Notes
 
 - Keep two outputs by design: `canonicalized.csv` for analysis and `canonicalized_debug.csv` for audits.
