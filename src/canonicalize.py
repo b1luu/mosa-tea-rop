@@ -414,6 +414,7 @@ def write_outputs(
         "tea_base_final",
         "tea_resolution",
     ]
+    final_cols = [c for c in final_cols if c in df.columns]
     df_final = df[final_cols].copy()
     df_final.to_csv(output_path, index=False)
     print(f"wrote {output_path}")
