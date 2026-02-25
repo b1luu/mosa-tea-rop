@@ -66,6 +66,10 @@ def main() -> None:
     merged["batch_yield_ml"] = merged["batch_yield_ml"].fillna(DEFAULT_BATCH_YIELD_ML)
     merged["avg_batches_needed"] = merged["avg_tea_ml_total"] / merged["batch_yield_ml"]
 
+    # Round numeric columns to 2 decimal places for readability.
+    numeric_cols = merged.select_dtypes(include="number").columns
+    merged[numeric_cols] = merged[numeric_cols].round(2)
+
     merged.to_csv(output_path, index=False)
     print(f"Wrote {output_path}")
 
