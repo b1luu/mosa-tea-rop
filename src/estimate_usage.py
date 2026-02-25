@@ -285,6 +285,20 @@ def main() -> None:
             if matched.ice:
                 df.at[idx, "recipe_ice"] = matched.ice
 
+    # Force ice bucket when recipe explicitly specifies a fixed ice level.
+    force_ice_100 = df["recipe_ice"].str.contains("100%", case=False, na=False)
+    if force_ice_100.any():
+        df.loc[force_ice_100, "ice_pct_bucket"] = 100
+        df.loc[force_ice_100, "ice_pct_imputed"] = True
+        if 100 in manual_means:
+            df.loc[force_ice_100, "base_tea_ml"] = manual_means[100]
+
+    force_no_ice = df["recipe_ice"].str.contains("no ice", case=False, na=False)
+    if force_no_ice.any():
+        df.loc[force_no_ice, "ice_pct_bucket"] = 0
+        df.loc[force_no_ice, "ice_pct_imputed"] = True
+        df.loc[force_no_ice, "base_tea_ml"] = ZERO_ICE_BASE_ML
+
     df["base_total_ml"] = df["base_tea_ml"]
     df["milk_ml_est"] = 0.0
 
