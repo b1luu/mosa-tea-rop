@@ -56,19 +56,49 @@ def main() -> None:
     batch = pd.read_csv(batch_path)
 
     usage["batch_key"] = usage["tea_component"].map(TEA_COMPONENT_TO_BATCH_KEY).fillna("")
-    batch = batch.rename(columns={"tea_key": "batch_key", "yield_ml": "batch_yield_ml"})
+    batch = batch.rename(
+        columns={
+            "tea_key": "batch_key",
+            "yield_ml": "batch_yield_ml",
+            "yield_ml_min": "batch_yield_ml_min",
+            "yield_ml_max": "batch_yield_ml_max",
+        }
+    )
 
     merged = usage.merge(
-        batch[["batch_key", "batch_yield_ml"]],
+        batch[
+            [
+                "batch_key",
+                "batch_yield_ml",
+                "batch_yield_ml_min",
+                "batch_yield_ml_max",
+            ]
+        ],
         on="batch_key",
         how="left",
     )
     merged["batch_yield_ml"] = merged["batch_yield_ml"].fillna(DEFAULT_BATCH_YIELD_ML)
+    merged["batch_yield_ml_min"] = merged["batch_yield_ml_min"].fillna(
+        merged["batch_yield_ml"]
+    )
+    merged["batch_yield_ml_max"] = merged["batch_yield_ml_max"].fillna(
+        merged["batch_yield_ml"]
+    )
     merged["avg_batches_needed"] = merged["avg_tea_ml_total"] / merged["batch_yield_ml"]
+    merged["avg_batches_needed_min"] = (
+        merged["avg_tea_ml_total"] / merged["batch_yield_ml_max"]
+    )
+    merged["avg_batches_needed_max"] = (
+        merged["avg_tea_ml_total"] / merged["batch_yield_ml_min"]
+    )
 
     # Round numeric columns to 2 decimal places for readability.
     numeric_cols = merged.select_dtypes(include="number").columns
     merged[numeric_cols] = merged[numeric_cols].round(2)
+
+    # Drop batch_key for readability (no longer needed in output).
+    if "batch_key" in merged.columns:
+        merged = merged.drop(columns=["batch_key"])
 
     merged.to_csv(output_path, index=False)
     print(f"Wrote {output_path}")
