@@ -340,6 +340,34 @@ jobs:
               print(f"Wrote {path}")
           PY
 
+      - name: Build synthetic recipe overrides
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          path = Path("tmp/ci_recipe_simple.csv")
+          path.parent.mkdir(parents=True, exist_ok=True)
+
+          rows = [
+              {
+                  "item_name": "Matcha Latte",
+                  "tea_base_ml": "",
+                  "milk_ml": "",
+                  "ice": "100% ice",
+                  "match_tokens": "",
+              }
+          ]
+
+          fieldnames = ["item_name", "tea_base_ml", "milk_ml", "ice", "match_tokens"]
+          with path.open("w", newline="", encoding="utf-8") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Wrote {path}")
+          PY
+
       - name: Run usage estimation on fixture
         run: |
           python src/estimate_usage.py \
@@ -350,7 +378,8 @@ jobs:
             --weekday-output tmp/ci_usage_weekday_summary.csv \
             --monthly-weekday-output tmp/ci_usage_monthly_weekday_summary.csv \
             --validation-output tmp/ci_usage_validation.csv \
-            --manual-samples-dir tmp/ci_manual_samples
+            --manual-samples-dir tmp/ci_manual_samples \
+            --recipe-simple tmp/ci_recipe_simple.csv
 
       - name: Validate usage outputs
         run: |
