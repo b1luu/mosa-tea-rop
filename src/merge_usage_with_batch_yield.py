@@ -15,7 +15,7 @@ TEA_COMPONENT_TO_BATCH_KEY = {
     "genmai": "genmai",
     "black": "matured_black",
     # Treat buckwheat_barley as buckwheat batch by default.
-    "buckwheat_barley": "buckwheat",
+    "buckwheat_barley": "buckwheat_barley",
     # Matcha is a separate concentrate process; no batch yield mapping here.
     "matcha": "",
 }
