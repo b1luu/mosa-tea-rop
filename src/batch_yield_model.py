@@ -9,7 +9,7 @@ from typing import Dict, Tuple
 ABSORB_ML_PER_G_NO_SQUEEZE: Dict[str, float] = {
     "four_seasons": 3.2,
     "green_tea": 3.0,
-    "tie_guan_yin": 3.1,
+    "tie_guan_yin": 2.8125,
     "matured_black": 2.7,
     "buckwheat": 2.4,
     "barley": 2.8,

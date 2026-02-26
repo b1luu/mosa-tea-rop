@@ -356,7 +356,14 @@ jobs:
                   "milk_ml": "",
                   "ice": "100% ice",
                   "match_tokens": "",
-              }
+              },
+              {
+                  "item_name": "Au Lait",
+                  "tea_base_ml": "200",
+                  "milk_ml": "150",
+                  "ice": "ice (per ice level)",
+                  "match_tokens": "au lait",
+              },
           ]
 
           fieldnames = ["item_name", "tea_base_ml", "milk_ml", "ice", "match_tokens"]
