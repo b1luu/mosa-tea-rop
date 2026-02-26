@@ -37,6 +37,11 @@ DEFAULT_BATCH_WATER_ICE: Dict[str, Dict[str, float]] = {
     "genmai": {"hot_water_ml": 6000, "ice_grams": 0},
 }
 
+COMPOSITE_BATCH_RULES: Dict[str, Dict[str, list[str]]] = {
+    # Composite batches are sums of component batches using their defaults.
+    "buckwheat_barley": {"components": ["buckwheat", "barley"]},
+}
+
 
 def resolve_batch_inputs(
     tea_key: str,
@@ -95,6 +100,57 @@ def estimate_batch_yield_ml(
     return yield_ml, absorbed_ml, absorb_ml_per_g
 
 
+def estimate_composite_batch_yield_ml(
+    tea_key: str,
+    *,
+    leaf_grams: float | None = None,
+    hot_water_ml: float | None = None,
+    ice_grams: float | None = None,
+    process_loss_ml: float = 0,
+) -> Tuple[float, float, float, float, float, float]:
+    rule = COMPOSITE_BATCH_RULES.get(tea_key)
+    if not rule:
+        raise KeyError(f"Unknown composite tea_key: {tea_key}")
+
+    total_yield = 0.0
+    total_absorbed = 0.0
+    total_leaf = 0.0
+    total_hot = 0.0
+    total_ice = 0.0
+
+    for component in rule["components"]:
+        component_leaf = leaf_grams if leaf_grams is not None else DEFAULT_LEAF_GRAMS.get(component)
+        if component_leaf is None:
+            raise KeyError(f"Missing default leaf grams for tea_key: {component}")
+        component_hot, component_ice = resolve_batch_inputs(
+            tea_key=component,
+            hot_water_ml=hot_water_ml,
+            ice_grams=ice_grams,
+        )
+        yield_ml, absorbed_ml, _ = estimate_batch_yield_ml(
+            tea_key=component,
+            leaf_grams=component_leaf,
+            hot_water_ml=component_hot,
+            ice_grams=component_ice,
+            process_loss_ml=process_loss_ml,
+        )
+        total_yield += yield_ml
+        total_absorbed += absorbed_ml
+        total_leaf += component_leaf
+        total_hot += component_hot
+        total_ice += component_ice
+
+    absorb_ml_per_g = total_absorbed / total_leaf if total_leaf else 0.0
+    return (
+        total_yield,
+        total_absorbed,
+        absorb_ml_per_g,
+        total_leaf,
+        total_hot,
+        total_ice,
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Estimate tea batch yield.")
     parser.add_argument(
@@ -148,27 +204,45 @@ def main() -> None:
     if args.tea_key:
         tea_keys = [args.tea_key]
     else:
-        tea_keys = sorted(ABSORB_ML_PER_G_NO_SQUEEZE.keys())
+        tea_keys = sorted(
+            set(ABSORB_ML_PER_G_NO_SQUEEZE.keys()).union(COMPOSITE_BATCH_RULES.keys())
+        )
 
     rows = []
     for tea_key in tea_keys:
-        leaf_grams = args.leaf_grams
-        if leaf_grams is None:
-            leaf_grams = DEFAULT_LEAF_GRAMS.get(tea_key)
-        if leaf_grams is None:
-            raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
-        resolved_hot_water_ml, resolved_ice_grams = resolve_batch_inputs(
-            tea_key=tea_key,
-            hot_water_ml=args.hot_water_ml,
-            ice_grams=args.ice_grams,
-        )
-        yield_ml, absorbed_ml, absorb_ml_per_g = estimate_batch_yield_ml(
-            tea_key=tea_key,
-            leaf_grams=leaf_grams,
-            hot_water_ml=resolved_hot_water_ml,
-            ice_grams=resolved_ice_grams,
-            process_loss_ml=args.process_loss_ml,
-        )
+        if tea_key in COMPOSITE_BATCH_RULES:
+            (
+                yield_ml,
+                absorbed_ml,
+                absorb_ml_per_g,
+                leaf_grams,
+                resolved_hot_water_ml,
+                resolved_ice_grams,
+            ) = estimate_composite_batch_yield_ml(
+                tea_key=tea_key,
+                leaf_grams=args.leaf_grams,
+                hot_water_ml=args.hot_water_ml,
+                ice_grams=args.ice_grams,
+                process_loss_ml=args.process_loss_ml,
+            )
+        else:
+            leaf_grams = args.leaf_grams
+            if leaf_grams is None:
+                leaf_grams = DEFAULT_LEAF_GRAMS.get(tea_key)
+            if leaf_grams is None:
+                raise KeyError(f"Missing default leaf grams for tea_key: {tea_key}")
+            resolved_hot_water_ml, resolved_ice_grams = resolve_batch_inputs(
+                tea_key=tea_key,
+                hot_water_ml=args.hot_water_ml,
+                ice_grams=args.ice_grams,
+            )
+            yield_ml, absorbed_ml, absorb_ml_per_g = estimate_batch_yield_ml(
+                tea_key=tea_key,
+                leaf_grams=leaf_grams,
+                hot_water_ml=resolved_hot_water_ml,
+                ice_grams=resolved_ice_grams,
+                process_loss_ml=args.process_loss_ml,
+            )
         bag_grams = args.bag_grams
         bags_used = leaf_grams / bag_grams if bag_grams else None
         rows.append(
