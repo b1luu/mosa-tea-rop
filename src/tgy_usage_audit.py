@@ -90,11 +90,19 @@ def main() -> None:
     if tgy_batch.empty:
         raise ValueError("tie_guan_yin batch yield not found in batch_yield_estimates.csv")
     tgy_yield_ml = float(tgy_batch.iloc[0]["yield_ml"])
+    tgy_yield_min = tgy_batch.iloc[0].get("yield_ml_min")
+    tgy_yield_max = tgy_batch.iloc[0].get("yield_ml_max")
+    tgy_yield_min = float(tgy_yield_min) if pd.notna(tgy_yield_min) else tgy_yield_ml
+    tgy_yield_max = float(tgy_yield_max) if pd.notna(tgy_yield_max) else tgy_yield_ml
     leaf_grams_per_batch = float(tgy_batch.iloc[0].get("leaf_grams", 0))
     bag_grams = float(tgy_batch.iloc[0].get("bag_grams", args.bag_grams))
 
     daily["batch_yield_ml"] = tgy_yield_ml
     daily["batches_needed"] = daily["tgy_ml_total"] / tgy_yield_ml
+    daily["batch_yield_ml_min"] = tgy_yield_min
+    daily["batch_yield_ml_max"] = tgy_yield_max
+    daily["batches_needed_min"] = daily["tgy_ml_total"] / tgy_yield_max
+    daily["batches_needed_max"] = daily["tgy_ml_total"] / tgy_yield_min
 
     # Resolution mix for TGY-linked drinks.
     resolution_mix = (
@@ -145,12 +153,24 @@ def main() -> None:
     )
     monthly = monthly[monthly["full_month"]].copy()
     monthly["batch_yield_ml"] = tgy_yield_ml
+    monthly["batch_yield_ml_min"] = tgy_yield_min
+    monthly["batch_yield_ml_max"] = tgy_yield_max
     monthly["leaf_grams_per_batch"] = leaf_grams_per_batch
     monthly["bag_grams"] = bag_grams
     monthly["batches_needed"] = monthly["tgy_ml_total"] / tgy_yield_ml
+    monthly["batches_needed_min"] = monthly["tgy_ml_total"] / tgy_yield_max
+    monthly["batches_needed_max"] = monthly["tgy_ml_total"] / tgy_yield_min
     monthly["leaf_grams_used"] = monthly["batches_needed"] * leaf_grams_per_batch
+    monthly["leaf_grams_used_min"] = monthly["batches_needed_min"] * leaf_grams_per_batch
+    monthly["leaf_grams_used_max"] = monthly["batches_needed_max"] * leaf_grams_per_batch
     monthly["bags_used"] = (
         monthly["leaf_grams_used"] / bag_grams if bag_grams else 0
+    )
+    monthly["bags_used_min"] = (
+        monthly["leaf_grams_used_min"] / bag_grams if bag_grams else 0
+    )
+    monthly["bags_used_max"] = (
+        monthly["leaf_grams_used_max"] / bag_grams if bag_grams else 0
     )
 
     monthly = monthly[
@@ -160,11 +180,19 @@ def main() -> None:
             "days_in_month",
             "tgy_ml_total",
             "batch_yield_ml",
+            "batch_yield_ml_min",
+            "batch_yield_ml_max",
             "leaf_grams_per_batch",
             "bag_grams",
             "batches_needed",
+            "batches_needed_min",
+            "batches_needed_max",
             "leaf_grams_used",
+            "leaf_grams_used_min",
+            "leaf_grams_used_max",
             "bags_used",
+            "bags_used_min",
+            "bags_used_max",
         ]
     ].copy()
     monthly["month"] = monthly["month"].astype(str)
