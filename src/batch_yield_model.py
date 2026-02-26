@@ -37,6 +37,11 @@ DEFAULT_BATCH_WATER_ICE: Dict[str, Dict[str, float]] = {
     "genmai": {"hot_water_ml": 6000, "ice_grams": 0},
 }
 
+# Optional ice range for sensitivity bands (min, max).
+ICE_GRAMS_RANGE: Dict[str, Tuple[float, float]] = {
+    "tie_guan_yin": (2400, 2900),
+}
+
 COMPOSITE_BATCH_RULES: Dict[str, Dict[str, list[str]]] = {
     # Composite batches are sums of component batches using their defaults.
     "buckwheat_barley": {"components": ["buckwheat", "barley"]},
@@ -56,6 +61,15 @@ def resolve_batch_inputs(
     )
     resolved_ice_grams = batch_defaults["ice_grams"] if ice_grams is None else ice_grams
     return resolved_hot_water_ml, resolved_ice_grams
+
+
+def resolve_ice_range(tea_key: str, ice_grams: float | None) -> Tuple[float, float]:
+    if ice_grams is not None:
+        return float(ice_grams), float(ice_grams)
+    if tea_key in ICE_GRAMS_RANGE:
+        return ICE_GRAMS_RANGE[tea_key]
+    _, resolved_ice = resolve_batch_inputs(tea_key, None, None)
+    return float(resolved_ice), float(resolved_ice)
 
 
 def estimate_batch_yield_ml(
@@ -100,6 +114,21 @@ def estimate_batch_yield_ml(
     return yield_ml, absorbed_ml, absorb_ml_per_g
 
 
+def estimate_batch_yield_range_ml(
+    tea_key: str,
+    leaf_grams: float,
+    hot_water_ml: float,
+    ice_grams: float | None,
+    process_loss_ml: float,
+) -> Tuple[float, float, float, float]:
+    ice_min, ice_max = resolve_ice_range(tea_key, ice_grams)
+    absorb_ml_per_g = ABSORB_ML_PER_G_NO_SQUEEZE[tea_key]
+    absorbed_ml = leaf_grams * absorb_ml_per_g
+    yield_min = hot_water_ml + ice_min - absorbed_ml - process_loss_ml
+    yield_max = hot_water_ml + ice_max - absorbed_ml - process_loss_ml
+    return yield_min, yield_max, ice_min, ice_max
+
+
 def estimate_composite_batch_yield_ml(
     tea_key: str,
     *,
@@ -107,16 +136,20 @@ def estimate_composite_batch_yield_ml(
     hot_water_ml: float | None = None,
     ice_grams: float | None = None,
     process_loss_ml: float = 0,
-) -> Tuple[float, float, float, float, float, float]:
+) -> Tuple[float, float, float, float, float, float, float, float]:
     rule = COMPOSITE_BATCH_RULES.get(tea_key)
     if not rule:
         raise KeyError(f"Unknown composite tea_key: {tea_key}")
 
     total_yield = 0.0
+    total_yield_min = 0.0
+    total_yield_max = 0.0
     total_absorbed = 0.0
     total_leaf = 0.0
     total_hot = 0.0
     total_ice = 0.0
+    total_ice_min = 0.0
+    total_ice_max = 0.0
 
     for component in rule["components"]:
         component_leaf = leaf_grams if leaf_grams is not None else DEFAULT_LEAF_GRAMS.get(component)
@@ -134,20 +167,35 @@ def estimate_composite_batch_yield_ml(
             ice_grams=component_ice,
             process_loss_ml=process_loss_ml,
         )
+        yield_min, yield_max, ice_min, ice_max = estimate_batch_yield_range_ml(
+            tea_key=component,
+            leaf_grams=component_leaf,
+            hot_water_ml=component_hot,
+            ice_grams=ice_grams,
+            process_loss_ml=process_loss_ml,
+        )
         total_yield += yield_ml
+        total_yield_min += yield_min
+        total_yield_max += yield_max
         total_absorbed += absorbed_ml
         total_leaf += component_leaf
         total_hot += component_hot
         total_ice += component_ice
+        total_ice_min += ice_min
+        total_ice_max += ice_max
 
     absorb_ml_per_g = total_absorbed / total_leaf if total_leaf else 0.0
     return (
         total_yield,
+        total_yield_min,
+        total_yield_max,
         total_absorbed,
         absorb_ml_per_g,
         total_leaf,
         total_hot,
         total_ice,
+        total_ice_min,
+        total_ice_max,
     )
 
 
@@ -213,11 +261,15 @@ def main() -> None:
         if tea_key in COMPOSITE_BATCH_RULES:
             (
                 yield_ml,
+                yield_ml_min,
+                yield_ml_max,
                 absorbed_ml,
                 absorb_ml_per_g,
                 leaf_grams,
                 resolved_hot_water_ml,
                 resolved_ice_grams,
+                ice_grams_min,
+                ice_grams_max,
             ) = estimate_composite_batch_yield_ml(
                 tea_key=tea_key,
                 leaf_grams=args.leaf_grams,
@@ -243,6 +295,15 @@ def main() -> None:
                 ice_grams=resolved_ice_grams,
                 process_loss_ml=args.process_loss_ml,
             )
+            yield_ml_min, yield_ml_max, ice_grams_min, ice_grams_max = (
+                estimate_batch_yield_range_ml(
+                    tea_key=tea_key,
+                    leaf_grams=leaf_grams,
+                    hot_water_ml=resolved_hot_water_ml,
+                    ice_grams=args.ice_grams,
+                    process_loss_ml=args.process_loss_ml,
+                )
+            )
         bag_grams = args.bag_grams
         bags_used = leaf_grams / bag_grams if bag_grams else None
         rows.append(
@@ -251,10 +312,14 @@ def main() -> None:
                 "leaf_grams": leaf_grams,
                 "hot_water_ml": resolved_hot_water_ml,
                 "ice_grams": resolved_ice_grams,
+                "ice_grams_min": ice_grams_min,
+                "ice_grams_max": ice_grams_max,
                 "process_loss_ml": args.process_loss_ml,
                 "absorb_ml_per_g": absorb_ml_per_g,
                 "absorbed_ml": absorbed_ml,
                 "yield_ml": yield_ml,
+                "yield_ml_min": yield_ml_min,
+                "yield_ml_max": yield_ml_max,
                 "bag_grams": bag_grams,
                 "bags_used": bags_used,
             }
@@ -270,10 +335,14 @@ def main() -> None:
                 "leaf_grams",
                 "hot_water_ml",
                 "ice_grams",
+                "ice_grams_min",
+                "ice_grams_max",
                 "process_loss_ml",
                 "absorb_ml_per_g",
                 "absorbed_ml",
                 "yield_ml",
+                "yield_ml_min",
+                "yield_ml_max",
                 "bag_grams",
                 "bags_used",
             ],
