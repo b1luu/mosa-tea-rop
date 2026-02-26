@@ -2,7 +2,7 @@
 
 Inputs:
   - data/trim/canonicalized_line_items.csv (one row per drink)
-  - data/experiment/manual_samples_*pct.csv (manual tea base volumes)
+  - experiments/manual_samples/manual_samples_*pct.csv (manual tea base volumes)
   - data/reference/item_default_component.csv (default components)
 
 Outputs:
@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--manual-samples-dir",
-        default="data/experiment",
+        default="experiments/manual_samples",
         help="Directory containing manual_samples_*pct.csv files.",
     )
     parser.add_argument(
