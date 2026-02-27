@@ -10,17 +10,12 @@ import pandas as pd
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Estimate TGY bag usage with sugar/creamer/topping displacement."
+        description="Estimate TGY bag usage with sugar/creamer displacement."
     )
     parser.add_argument(
         "--components",
         default="data/analysis/usage_components.csv",
         help="Usage components CSV path.",
-    )
-    parser.add_argument(
-        "--line-items",
-        default="data/analysis/usage_line_items.csv",
-        help="Usage line items CSV path.",
     )
     parser.add_argument(
         "--ingredients-summary",
@@ -36,12 +31,6 @@ def parse_args() -> argparse.Namespace:
         "--output",
         default="data/analysis/tgy_monthly_bag_usage_full_components.csv",
         help="Output CSV path.",
-    )
-    parser.add_argument(
-        "--topping-displacement-ml",
-        type=float,
-        default=100.0,
-        help="ML displacement per topping unit (default: 100).",
     )
     return parser.parse_args()
 
@@ -113,7 +102,6 @@ def main() -> None:
             "tgy_ml_base",
             "sugar_grams",
             "creamer_grams",
-            "topping_displacement_ml",
             "tgy_ml_adjusted",
             "batches_needed",
             "bags_used",
